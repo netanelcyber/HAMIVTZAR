@@ -4,6 +4,9 @@ Commands:
     ingest  Build a BM25 index from a directory of documentation.
     ask     Answer a single question from the command line.
     chat    Interactive question/answer loop.
+
+Answering is offline by default: the ``auto`` backend selects an available
+local engine (Ollama / llama.cpp / extractive) and never touches the network.
 """
 
 from __future__ import annotations
@@ -13,8 +16,9 @@ import os
 import sys
 from typing import List, Tuple
 
+from .backends import BACKEND_NAMES, DEFAULT_CLAUDE_MODEL, ExtractiveAnswerer, resolve_backend
 from .ingest import chunk_documents, iter_documents
-from .llm import DEFAULT_MODEL, LinuxDocsLLM
+from .llm import LinuxDocsLLM
 from .retriever import BM25Index
 
 DEFAULT_INDEX = "index.json"
@@ -61,7 +65,23 @@ def _print_sources(results: List[Tuple]) -> None:
 
 def _make_llm(args: argparse.Namespace) -> LinuxDocsLLM:
     index = _load_index(args.index)
-    return LinuxDocsLLM(index, model=args.model, top_k=args.top_k)
+    backend = resolve_backend(
+        args.backend,
+        ollama_model=getattr(args, "ollama_model", "llama3.2"),
+        ollama_url=getattr(args, "ollama_url", None),
+        model_path=getattr(args, "model_path", None),
+        model=getattr(args, "model", DEFAULT_CLAUDE_MODEL),
+    )
+    # An explicitly chosen backend that can't run (no server / missing lib /
+    # no API key) must not crash — degrade to the always-offline extractive one.
+    if args.backend != "auto" and not backend.available():
+        print(
+            f"[backend: {backend.name} unavailable — falling back to extractive]",
+            file=sys.stderr,
+        )
+        backend = ExtractiveAnswerer()
+    print(f"[backend: {backend.name}]", file=sys.stderr)
+    return LinuxDocsLLM(index, backend=backend, top_k=args.top_k)
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
@@ -72,8 +92,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
         return 1
 
     if args.show_retrieval:
-        results = llm.retrieve(question)
-        _print_sources(results)
+        _print_sources(llm.retrieve(question))
         print()
 
     _answer, results = llm.answer(question, on_text=lambda t: print(t, end="", flush=True))
@@ -104,10 +123,30 @@ def cmd_chat(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_answer_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--backend",
+        choices=BACKEND_NAMES,
+        default="auto",
+        help="answer engine (default: auto — offline local engine, never network)",
+    )
+    parser.add_argument("--top-k", type=int, default=4, help="number of chunks to retrieve")
+    parser.add_argument("--no-sources", action="store_true", help="hide the source list")
+    # Ollama backend
+    parser.add_argument("--ollama-model", default="llama3.2", help="Ollama model name")
+    parser.add_argument("--ollama-url", default=None, help="Ollama base URL")
+    # llama.cpp backend
+    parser.add_argument("--model-path", default=None, help="path to a local GGUF model")
+    # Claude backend (online, opt-in)
+    parser.add_argument(
+        "--model", default=DEFAULT_CLAUDE_MODEL, help="Claude model id (--backend claude)"
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="linux-docs-llm",
-        description="Retrieval-augmented LLM grounded in Linux documentation.",
+        description="Offline-first retrieval-augmented LLM grounded in Linux documentation.",
     )
     parser.add_argument(
         "--index", default=DEFAULT_INDEX, help=f"index file (default: {DEFAULT_INDEX})"
@@ -123,27 +162,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_ingest.set_defaults(func=cmd_ingest)
 
-    common_model = dict(
-        model=dict(default=DEFAULT_MODEL, help=f"Claude model (default: {DEFAULT_MODEL})"),
-        top_k=dict(type=int, default=4, help="number of chunks to retrieve"),
-    )
-
     p_ask = sub.add_parser("ask", help="answer a single question")
     p_ask.add_argument("question", nargs="+", help="the question to answer")
-    p_ask.add_argument("--model", **common_model["model"])
-    p_ask.add_argument("--top-k", **common_model["top_k"])
-    p_ask.add_argument("--no-sources", action="store_true", help="hide the source list")
     p_ask.add_argument(
         "--show-retrieval",
         action="store_true",
         help="print retrieved sources before answering",
     )
+    _add_answer_args(p_ask)
     p_ask.set_defaults(func=cmd_ask)
 
     p_chat = sub.add_parser("chat", help="interactive Q&A loop")
-    p_chat.add_argument("--model", **common_model["model"])
-    p_chat.add_argument("--top-k", **common_model["top_k"])
-    p_chat.add_argument("--no-sources", action="store_true", help="hide the source list")
+    _add_answer_args(p_chat)
     p_chat.set_defaults(func=cmd_chat)
 
     return parser

@@ -1,77 +1,35 @@
-"""Answer Linux questions with Claude, grounded in retrieved documentation.
+"""Tie retrieval and an answer backend together.
 
-The model is instructed to answer *only* from the provided context and to cite
-the sources it used with ``[n]`` markers. Generation uses adaptive thinking and
-streaming (per the Anthropic SDK guidance for anything non-trivial).
+:class:`LinuxDocsLLM` retrieves documentation chunks for a question and hands
+them to a pluggable :class:`~linux_docs_llm.backends.Answerer`. The default
+backend is fully offline (see :mod:`linux_docs_llm.backends`).
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
+from .backends import Answerer, resolve_backend
 from .ingest import Chunk
+from .prompt import NO_CONTEXT_MESSAGE
 from .retriever import BM25Index
 
-if TYPE_CHECKING:  # avoid importing the SDK unless it is actually used
-    import anthropic
-
-DEFAULT_MODEL = "claude-opus-4-8"
-
-SYSTEM_PROMPT = """\
-You are a Linux documentation assistant. Answer the user's question using ONLY \
-the numbered documentation excerpts provided in the user message.
-
-Rules:
-- Ground every claim in the excerpts. Cite the excerpts you use with their \
-number in square brackets, e.g. "Use chmod to change permissions [2]."
-- If the excerpts do not contain the answer, say so plainly instead of guessing.
-- Prefer concrete commands and short examples. Keep the answer focused; do not \
-restate the whole excerpt.
-- When you show a command, format it in a fenced code block.\
-"""
-
-# A message shown when retrieval finds nothing relevant — we skip the model call.
-NO_CONTEXT_MESSAGE = (
-    "I couldn't find anything relevant in the indexed Linux documentation. "
-    "Try rephrasing, or add more docs and re-run `ingest`."
-)
-
-
-def format_context(results: List[Tuple[Chunk, float]]) -> str:
-    """Render retrieved chunks as a numbered context block for the prompt."""
-    blocks = []
-    for n, (chunk, _score) in enumerate(results, start=1):
-        blocks.append(f"[{n}] {chunk.as_context()}")
-    return "\n\n".join(blocks)
-
-
-def build_user_message(question: str, context: str) -> str:
-    return (
-        f"Documentation excerpts:\n\n{context}\n\n"
-        f"---\n\nQuestion: {question}"
-    )
+# Kept for backwards compatibility / convenience imports.
+from .backends import DEFAULT_CLAUDE_MODEL as DEFAULT_MODEL  # noqa: F401
 
 
 class LinuxDocsLLM:
-    """Couples a BM25 index with the Anthropic client to answer questions."""
+    """Retrieve relevant chunks and answer a question with the given backend."""
 
     def __init__(
         self,
         index: BM25Index,
-        client: Optional["anthropic.Anthropic"] = None,
-        model: str = DEFAULT_MODEL,
+        backend: Optional[Answerer] = None,
         top_k: int = 4,
-        max_tokens: int = 1500,
     ):
         self.index = index
-        if client is None:
-            import anthropic  # imported lazily so retrieval works without the SDK
-
-            client = anthropic.Anthropic()
-        self.client = client
-        self.model = model
+        self.backend = backend or resolve_backend("auto")
         self.top_k = top_k
-        self.max_tokens = max_tokens
 
     def retrieve(self, question: str) -> List[Tuple[Chunk, float]]:
         return self.index.search(question, top_k=self.top_k)
@@ -83,8 +41,9 @@ class LinuxDocsLLM:
     ) -> Tuple[str, List[Tuple[Chunk, float]]]:
         """Answer ``question`` and return ``(answer_text, retrieved_chunks)``.
 
-        If ``on_text`` is given it is called with each streamed text delta, which
-        the CLI uses to print the answer as it is generated.
+        If ``on_text`` is given it receives streamed text deltas (used by the CLI
+        to print the answer as it is produced). When retrieval finds nothing, the
+        backend is not called and a fixed "no context" message is returned.
         """
         results = self.retrieve(question)
         if not results:
@@ -92,19 +51,5 @@ class LinuxDocsLLM:
                 on_text(NO_CONTEXT_MESSAGE)
             return NO_CONTEXT_MESSAGE, results
 
-        user_message = build_user_message(question, format_context(results))
-
-        parts: List[str] = []
-        with self.client.messages.stream(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            thinking={"type": "adaptive"},
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-        ) as stream:
-            for text in stream.text_stream:
-                parts.append(text)
-                if on_text:
-                    on_text(text)
-
-        return "".join(parts), results
+        text = self.backend.answer(question, results, on_text=on_text)
+        return text, results
