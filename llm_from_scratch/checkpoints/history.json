@@ -1,0 +1,152 @@
+[
+  {
+    "step": 200,
+    "train_loss": 5.4982,
+    "val_loss": 5.782,
+    "lr": 0.0003
+  },
+  {
+    "step": 400,
+    "train_loss": 4.8076,
+    "val_loss": 5.1651,
+    "lr": 0.000297
+  },
+  {
+    "step": 600,
+    "train_loss": 4.182,
+    "val_loss": 4.623,
+    "lr": 0.000292
+  },
+  {
+    "step": 800,
+    "train_loss": 3.5912,
+    "val_loss": 4.4061,
+    "lr": 0.000285
+  },
+  {
+    "step": 1000,
+    "train_loss": 3.3668,
+    "val_loss": 4.3539,
+    "lr": 0.000276
+  },
+  {
+    "step": 1200,
+    "train_loss": 3.248,
+    "val_loss": 4.1795,
+    "lr": 0.000264
+  },
+  {
+    "step": 1400,
+    "train_loss": 2.8469,
+    "val_loss": 4.0939,
+    "lr": 0.000251
+  },
+  {
+    "step": 1600,
+    "train_loss": 2.9451,
+    "val_loss": 4.0414,
+    "lr": 0.000236
+  },
+  {
+    "step": 1800,
+    "train_loss": 2.916,
+    "val_loss": 3.9832,
+    "lr": 0.000219
+  },
+  {
+    "step": 2000,
+    "train_loss": 3.0708,
+    "val_loss": 3.909,
+    "lr": 0.000202
+  },
+  {
+    "step": 2200,
+    "train_loss": 2.3847,
+    "val_loss": 3.872,
+    "lr": 0.000183
+  },
+  {
+    "step": 2400,
+    "train_loss": 2.5975,
+    "val_loss": 3.805,
+    "lr": 0.000164
+  },
+  {
+    "step": 2600,
+    "train_loss": 2.8184,
+    "val_loss": 3.837,
+    "lr": 0.000145
+  },
+  {
+    "step": 2800,
+    "train_loss": 2.4636,
+    "val_loss": 3.6896,
+    "lr": 0.000126
+  },
+  {
+    "step": 3000,
+    "train_loss": 2.1877,
+    "val_loss": 3.7224,
+    "lr": 0.000107
+  },
+  {
+    "step": 3200,
+    "train_loss": 2.0615,
+    "val_loss": 3.7495,
+    "lr": 8.9e-05
+  },
+  {
+    "step": 3400,
+    "train_loss": 1.8181,
+    "val_loss": 3.8052,
+    "lr": 7.2e-05
+  },
+  {
+    "step": 3600,
+    "train_loss": 1.9556,
+    "val_loss": 3.7097,
+    "lr": 5.6e-05
+  },
+  {
+    "step": 3800,
+    "train_loss": 2.3214,
+    "val_loss": 3.7749,
+    "lr": 4.2e-05
+  },
+  {
+    "step": 4000,
+    "train_loss": 2.3261,
+    "val_loss": 3.6203,
+    "lr": 3e-05
+  },
+  {
+    "step": 4200,
+    "train_loss": 3.1601,
+    "val_loss": 3.6334,
+    "lr": 1.9e-05
+  },
+  {
+    "step": 4400,
+    "train_loss": 2.1762,
+    "val_loss": 3.6574,
+    "lr": 1.1e-05
+  },
+  {
+    "step": 4600,
+    "train_loss": 2.0733,
+    "val_loss": 3.6608,
+    "lr": 5e-06
+  },
+  {
+    "step": 4800,
+    "train_loss": 2.0149,
+    "val_loss": 3.5892,
+    "lr": 1e-06
+  },
+  {
+    "step": 5000,
+    "train_loss": 2.0957,
+    "val_loss": 3.6649,
+    "lr": 0.0
+  }
+]
