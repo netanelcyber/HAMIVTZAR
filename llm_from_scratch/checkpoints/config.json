@@ -1,9 +1,9 @@
 {
-  "vocab_size": 170,
-  "context_len": 64,
-  "n_embed": 64,
+  "vocab_size": 2000,
+  "context_len": 128,
+  "n_embed": 128,
   "n_heads": 4,
-  "n_layers": 2,
+  "n_layers": 3,
   "ff_mult": 4,
   "dropout": 0.1,
   "seed": 42
