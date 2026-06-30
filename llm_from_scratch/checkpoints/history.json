@@ -1,0 +1,32 @@
+[
+  {
+    "step": 200,
+    "train_loss": 1.9759,
+    "val_loss": 1.9595,
+    "lr": 0.000291
+  },
+  {
+    "step": 400,
+    "train_loss": 0.3574,
+    "val_loss": 0.3578,
+    "lr": 0.000225
+  },
+  {
+    "step": 600,
+    "train_loss": 0.1646,
+    "val_loss": 0.1646,
+    "lr": 0.000124
+  },
+  {
+    "step": 800,
+    "train_loss": 0.1137,
+    "val_loss": 0.1154,
+    "lr": 3.5e-05
+  },
+  {
+    "step": 1000,
+    "train_loss": 0.1102,
+    "val_loss": 0.1095,
+    "lr": 0.0
+  }
+]
