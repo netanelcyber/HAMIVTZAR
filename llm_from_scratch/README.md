@@ -38,15 +38,16 @@ Token Embedding + Positional Embedding
 | `model.py` | GPT model — forward pass, loss, generation |
 | `backprop.py` | Manual backpropagation through every layer |
 | `optimizer.py` | AdamW optimiser |
-| `data.py` | Linux man-page fetcher + dataset / batch utilities |
+| `data.py` | All Linux docs collector (man pages, /usr/share/doc/, info, /etc/) |
+| `text_processing.py` | NLTK-based corpus cleaning, sentence splitting, vocab analysis |
 | `train.py` | End-to-end training script |
 | `generate.py` | Load checkpoint and generate text |
 
 ## Quick Start
 
 ```bash
-# Install the only dependency
-pip install numpy
+# Install dependencies
+pip install numpy nltk
 
 # Train (fetches Linux man pages, saves to ./checkpoints/)
 cd llm_from_scratch
@@ -73,11 +74,27 @@ python generate.py --prompt "NAME" --tokens 80 --temperature 0.8
 --out-dir     PATH     where to save checkpoints (default ./checkpoints)
 ```
 
-## Data Source
+## Data Sources
 
-The model trains on Linux man pages fetched via the `man` command.  
-If `man` is unavailable the script falls back to a small built-in corpus
-covering `ls`, `grep`, and `find`.
+All Linux documentation available on the host system is collected automatically:
+
+| Source | Content | ~Size |
+|--------|---------|-------|
+| `/usr/share/man/man{1,7}` | Command & concept man pages (groff decompressed) | ~2 MB |
+| `/usr/share/doc/` | Package READMEs, changelogs, NEWS (695+ packages) | ~8 MB |
+| `/usr/share/info/` | GNU info pages (26 files) | ~2 MB |
+| `/etc/` | Annotated config files (sshd_config, fstab, sudoers…) | ~50 KB |
+
+Total: **~13 MB → ~6.5M BPE tokens**.
+
+Reddit is not available in this environment (proxy policy).
+
+## NLTK Integration
+
+`text_processing.py` applies NLTK before BPE training:
+- **Cleaning**: strip control chars, normalise Unicode, remove troff noise lines
+- **Stats**: word count, type/token ratio, top content words (lemmatised)
+- NLTK is used for corpus analysis only; the BPE tokeniser is still custom-built from scratch.
 
 ## Math
 

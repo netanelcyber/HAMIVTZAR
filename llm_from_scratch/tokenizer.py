@@ -5,18 +5,14 @@ Trained on Linux man-page text extracted at runtime.
 
 import re
 import json
-from collections import defaultdict
+from collections import defaultdict, Counter
 from pathlib import Path
 
 
 def get_word_freqs(text: str) -> dict[str, int]:
     """Count whitespace-delimited token frequencies, splitting each word into chars."""
-    freqs: dict[str, int] = defaultdict(int)
-    for word in re.findall(r"\S+", text):
-        # represent each word as space-separated characters with </w> end marker
-        key = " ".join(list(word)) + " </w>"
-        freqs[key] += 1
-    return dict(freqs)
+    raw = Counter(re.findall(r"\S+", text))
+    return {" ".join(list(w)) + " </w>": cnt for w, cnt in raw.items()}
 
 
 def get_pairs(vocab: dict[str, int]) -> dict[tuple[str, str], int]:
@@ -32,9 +28,17 @@ def get_pairs(vocab: dict[str, int]) -> dict[tuple[str, str], int]:
 def merge_vocab(pair: tuple[str, str], vocab: dict[str, int]) -> dict[str, int]:
     """Merge the most frequent pair in every word in vocab."""
     merged = pair[0] + pair[1]
-    escaped = re.escape(" ".join(pair))
-    pattern = re.compile(r"(?<!\S)" + escaped + r"(?!\S)")
-    return {pattern.sub(merged, word): freq for word, freq in vocab.items()}
+    bigram = " ".join(pair)
+    out: dict[str, int] = {}
+    for word, freq in vocab.items():
+        # fast path: skip words that don't contain the bigram
+        if bigram not in word:
+            out[word] = freq
+            continue
+        # replace all non-overlapping occurrences
+        parts = word.split(bigram)
+        out[bigram.join(parts).replace(bigram, merged) if len(parts) == 1 else merged.join(parts)] = freq
+    return out
 
 
 class BPETokenizer:

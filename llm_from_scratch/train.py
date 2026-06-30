@@ -7,9 +7,9 @@ Usage
     python train.py --steps 500       # quick smoke-test
 
 The script:
-  1. Fetches Linux man-page text (or uses the built-in fallback).
+  1. Collects all available Linux docs (man pages, /usr/share/doc/, info pages, /etc/).
   2. Trains a BPE tokeniser on that text.
-  3. Trains a small GPT model using manual backprop + AdamW.
+  3. Trains a GPT model using manual backprop + AdamW.
   4. Saves tokeniser and model checkpoint to ./checkpoints/.
   5. Runs a short generation demo at the end.
 """
@@ -32,6 +32,7 @@ from tokenizer import BPETokenizer
 from model import GPT, GPTConfig
 from backprop import GPTBackward
 from optimizer import AdamW
+from text_processing import preprocess_corpus
 
 
 # ---------------------------------------------------------------------------
@@ -40,15 +41,17 @@ from optimizer import AdamW
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train a from-scratch GPT on Linux docs")
-    p.add_argument("--steps", type=int, default=2000, help="training steps")
-    p.add_argument("--batch", type=int, default=8, help="batch size")
+    p.add_argument("--steps", type=int, default=5000, help="training steps")
+    p.add_argument("--batch", type=int, default=16, help="batch size")
     p.add_argument("--lr", type=float, default=3e-4)
-    p.add_argument("--vocab-size", type=int, default=1000)
-    p.add_argument("--context-len", type=int, default=64)
-    p.add_argument("--n-embed", type=int, default=64)
+    p.add_argument("--vocab-size", type=int, default=4000)
+    p.add_argument("--context-len", type=int, default=128)
+    p.add_argument("--n-embed", type=int, default=128)
     p.add_argument("--n-heads", type=int, default=4)
-    p.add_argument("--n-layers", type=int, default=2)
-    p.add_argument("--man-pages", type=int, default=30, help="# Linux man pages to fetch")
+    p.add_argument("--n-layers", type=int, default=3)
+    p.add_argument("--max-man-per-section", type=int, default=200, help="man pages per section")
+    p.add_argument("--max-doc-files", type=int, default=2000, help="max /usr/share/doc files")
+    p.add_argument("--max-info-pages", type=int, default=50, help="max info pages")
     p.add_argument("--eval-every", type=int, default=200)
     p.add_argument("--gen-prompt", type=str, default="NAME", help="generation seed text")
     p.add_argument("--gen-tokens", type=int, default=60, help="tokens to generate")
@@ -102,20 +105,46 @@ def main() -> None:
     py_rng = random.Random(args.seed)
 
     # ---- 1. Corpus --------------------------------------------------------
-    print("Collecting Linux man-page corpus …")
+    print("Collecting Linux documentation corpus …")
     t0 = time.time()
-    corpus = collect_corpus(max_pages=args.man_pages)
-    print(f"  corpus: {len(corpus):,} chars  ({time.time()-t0:.1f}s)")
+    corpus = collect_corpus(
+        max_man_per_section=args.max_man_per_section,
+        max_doc_files=args.max_doc_files,
+        max_info_pages=args.max_info_pages,
+        verbose=True,
+    )
+    print(f"  corpus ready: {len(corpus):,} chars  ({time.time()-t0:.1f}s)")
+
+    # ---- 1b. NLTK pre-processing -----------------------------------------
+    print("Pre-processing corpus with NLTK …")
+    corpus, stats = preprocess_corpus(corpus, analyze=True)
+    if stats:
+        print(f"  total words   : {stats['total_words']:,}")
+        print(f"  unique words  : {stats['unique_words']:,}")
+        print(f"  type/token    : {stats['type_token_ratio']}")
+        top5 = ", ".join(f"{w}({c})" for w, c in stats['top_content_words'][:5])
+        print(f"  top content   : {top5}")
+    print(f"  cleaned size  : {len(corpus):,} chars")
 
     # ---- 2. Tokeniser -----------------------------------------------------
-    print(f"Training BPE tokeniser (vocab_size={args.vocab_size}) …")
+    # Train BPE on a representative sample (faster); encode full corpus.
+    SAMPLE_CHARS = 500_000
+    sample = corpus if len(corpus) <= SAMPLE_CHARS else corpus[:SAMPLE_CHARS]
+    print(f"Training BPE tokeniser on {len(sample):,}-char sample (vocab_size={args.vocab_size}) …")
     tok = BPETokenizer()
-    tok.train(corpus, vocab_size=args.vocab_size)
+    tok.train(sample, vocab_size=args.vocab_size)
     print(f"  actual vocab size: {len(tok)}")
     tok.save(str(out_dir / "tokenizer.json"))
 
     # ---- 3. Tokenise corpus -----------------------------------------------
-    all_ids = tok.encode(corpus, add_special=False)
+    print(f"Tokenising full corpus ({len(corpus):,} chars) …")
+    # Encode in 100KB chunks to show progress
+    CHUNK = 100_000
+    all_ids: list[int] = []
+    for i in range(0, len(corpus), CHUNK):
+        all_ids.extend(tok.encode(corpus[i:i+CHUNK], add_special=False))
+        if (i // CHUNK) % 5 == 0:
+            print(f"  encoded {min(i+CHUNK, len(corpus)):,}/{len(corpus):,} chars …", end="\r")
     print(f"  tokenised length: {len(all_ids):,}")
     if len(all_ids) < args.context_len * 2:
         raise RuntimeError("Corpus too small for context length. Reduce --context-len.")

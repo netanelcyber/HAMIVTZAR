@@ -1,35 +1,224 @@
 """
-Data pipeline: collect Linux man-page text and prepare batches.
+Data pipeline: collect all available Linux documentation and prepare batches.
 
-Uses `man` (available on any Linux system with man-db) to read actual
-documentation pages. Falls back to a small built-in corpus if man is
-unavailable in the current environment.
+Sources (in order of richness):
+  1. All man pages — read directly from /usr/share/man/**/*.gz
+  2. /usr/share/doc/ — README*, *.md, *.txt, changelog.Debian
+  3. /usr/share/info/ — GNU info pages (gunzipped)
+  4. /etc/ config files with inline comments
+  5. Built-in fallback corpus if everything else fails
+
+Note: Reddit is unavailable in this environment (proxy policy blocks it).
 """
 
+import gzip
+import re
 import subprocess
 import random
-import numpy as np
+import os
 from pathlib import Path
 
+import numpy as np
 
-LINUX_MANPAGES = [
-    "ls", "cp", "mv", "rm", "mkdir", "rmdir", "chmod", "chown", "ln",
-    "cat", "less", "head", "tail", "grep", "sed", "awk", "sort", "uniq",
-    "find", "xargs", "tar", "gzip", "bzip2", "zip", "diff", "patch",
-    "ps", "top", "kill", "jobs", "fg", "bg", "nohup", "screen",
-    "ssh", "scp", "rsync", "curl", "wget", "ping", "netstat", "ifconfig",
-    "mount", "umount", "df", "du", "free", "vmstat", "iostat",
-    "echo", "printf", "read", "test", "expr", "date", "sleep",
-    "bash", "sh", "env", "export", "source", "alias", "which", "whereis",
-    "man", "info", "help", "apropos", "whatis",
-    "gcc", "make", "git", "vim", "nano", "emacs",
-    "python3", "perl", "awk",
-    "cron", "crontab", "systemctl", "journalctl", "dmesg",
-    "useradd", "userdel", "passwd", "su", "sudo",
-    "iptables", "ufw", "firewalld",
-    "dd", "fdisk", "mkfs", "fsck", "lsblk",
-    "strace", "ltrace", "gdb", "valgrind",
+
+# ---------------------------------------------------------------------------
+# Source 1: Man pages  (/usr/share/man/**/*.gz)
+# ---------------------------------------------------------------------------
+
+MAN_DIRS = [
+    "/usr/share/man/man1",
+    "/usr/share/man/man2",
+    "/usr/share/man/man3",
+    "/usr/share/man/man5",
+    "/usr/share/man/man7",
+    "/usr/share/man/man8",
 ]
+
+# Sections we care about most (skip man3 API refs which are very noisy)
+PRIORITY_SECTIONS = {"man1", "man5", "man7", "man8"}
+
+
+def _gunzip_text(path: Path) -> str:
+    """Decompress a .gz file and return its text content."""
+    try:
+        with gzip.open(path, "rt", encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except Exception:
+        return ""
+
+
+def _strip_troff(text: str) -> str:
+    """Very light troff/groff stripping — remove .XX directives and backslash escapes."""
+    lines = []
+    for line in text.splitlines():
+        line = line.strip()
+        # Skip pure troff directives
+        if line.startswith(".") and len(line) > 1 and not line[1].isdigit():
+            continue
+        # Remove backslash escapes: \fB, \fI, \fR, \(em, \\, etc.
+        line = re.sub(r"\\[fF][BIRPC0-9]", "", line)
+        line = re.sub(r"\\[()][a-zA-Z0-9]{2}", " ", line)
+        line = re.sub(r"\\.", "", line)
+        if line:
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def collect_man_pages(max_per_section: int = 200, verbose: bool = False) -> str:
+    """Read all man pages from /usr/share/man/. Returns plain text."""
+    chunks: list[str] = []
+    total = 0
+    for section_dir in MAN_DIRS:
+        p = Path(section_dir)
+        if not p.exists():
+            continue
+        section = p.name
+        count = 0
+        for gz_file in sorted(p.glob("*.gz")):
+            if count >= max_per_section:
+                break
+            raw = _gunzip_text(gz_file)
+            if not raw.strip():
+                continue
+            text = _strip_troff(raw)
+            if len(text) > 100:
+                chunks.append(text)
+                count += 1
+                total += 1
+        if verbose:
+            print(f"    {section}: {count} pages")
+
+    if verbose:
+        print(f"  man pages total: {total}")
+    return "\n\n".join(chunks)
+
+
+# ---------------------------------------------------------------------------
+# Source 2: /usr/share/doc/  (README, changelogs, plain text)
+# ---------------------------------------------------------------------------
+
+DOC_PATTERNS = [
+    "README*", "readme*",
+    "*.md", "*.txt", "*.rst",
+    "changelog.Debian", "changelog",
+    "NEWS", "TODO", "HACKING", "CONTRIBUTING",
+    "copyright",
+]
+
+MAX_DOC_FILE_SIZE = 50_000   # bytes — skip huge changelogs
+
+
+def collect_doc_files(max_files: int = 2000, verbose: bool = False) -> str:
+    """Walk /usr/share/doc/ and collect readable text files."""
+    doc_root = Path("/usr/share/doc")
+    if not doc_root.exists():
+        return ""
+
+    chunks: list[str] = []
+    seen: set[str] = set()
+    count = 0
+
+    for pkg_dir in sorted(doc_root.iterdir()):
+        if count >= max_files:
+            break
+        if not pkg_dir.is_dir():
+            continue
+        for pattern in DOC_PATTERNS:
+            for f in pkg_dir.glob(pattern):
+                if count >= max_files:
+                    break
+                key = str(f)
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    size = f.stat().st_size
+                    if size > MAX_DOC_FILE_SIZE or size < 50:
+                        continue
+                    # Try plain read first, then gzip
+                    if f.suffix == ".gz":
+                        text = _gunzip_text(f)
+                    else:
+                        text = f.read_text(encoding="utf-8", errors="replace")
+                    text = text.strip()
+                    if len(text) > 80:
+                        chunks.append(text)
+                        count += 1
+                except Exception:
+                    pass
+
+    if verbose:
+        print(f"  doc files: {count}")
+    return "\n\n".join(chunks)
+
+
+# ---------------------------------------------------------------------------
+# Source 3: /usr/share/info/  (GNU info pages, gzipped)
+# ---------------------------------------------------------------------------
+
+def collect_info_pages(max_files: int = 50, verbose: bool = False) -> str:
+    """Read GNU info pages from /usr/share/info/."""
+    info_dir = Path("/usr/share/info")
+    if not info_dir.exists():
+        return ""
+
+    chunks: list[str] = []
+    count = 0
+    for gz_file in sorted(info_dir.glob("*.gz")):
+        if count >= max_files:
+            break
+        text = _gunzip_text(gz_file)
+        # Strip info-format control chars
+        text = re.sub(r"\x1f[^\n]*\n", "\n", text)   # form-feed markers
+        text = re.sub(r"\*[Mm]enu:.*", "", text, flags=re.DOTALL)  # menu sections
+        text = text.strip()
+        if len(text) > 100:
+            chunks.append(text)
+            count += 1
+
+    if verbose:
+        print(f"  info pages: {count}")
+    return "\n\n".join(chunks)
+
+
+# ---------------------------------------------------------------------------
+# Source 4: /etc/ config files (human-readable comments and docs)
+# ---------------------------------------------------------------------------
+
+ETC_FILES = [
+    "/etc/bash.bashrc", "/etc/profile", "/etc/environment",
+    "/etc/fstab", "/etc/hosts", "/etc/hostname", "/etc/resolv.conf",
+    "/etc/ssh/sshd_config", "/etc/sudoers",
+    "/etc/apt/sources.list",
+    "/etc/systemd/system.conf", "/etc/systemd/journald.conf",
+    "/etc/security/limits.conf", "/etc/security/access.conf",
+    "/etc/sysctl.conf",
+    "/etc/crontab",
+    "/etc/nftables.conf",
+    "/etc/logrotate.conf",
+    "/etc/rsyslog.conf",
+]
+
+
+def collect_etc_files(verbose: bool = False) -> str:
+    chunks: list[str] = []
+    for path_str in ETC_FILES:
+        p = Path(path_str)
+        try:
+            if p.exists():
+                text = p.read_text(encoding="utf-8", errors="replace").strip()
+                if len(text) > 30:
+                    chunks.append(f"# {path_str}\n{text}")
+        except Exception:
+            pass
+    if verbose:
+        print(f"  /etc files: {len(chunks)}")
+    return "\n\n".join(chunks)
+
+
+# ---------------------------------------------------------------------------
+# Fallback corpus
+# ---------------------------------------------------------------------------
 
 FALLBACK_CORPUS = """\
 NAME
@@ -42,8 +231,6 @@ DESCRIPTION
        List information about the FILEs (the current directory by default).
        Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.
 
-       Mandatory arguments to long options are mandatory for short options too.
-
        -a, --all
               do not ignore entries starting with .
 
@@ -55,20 +242,11 @@ DESCRIPTION
        -R, --recursive
               list subdirectories recursively
 
-       -t     sort by modification time, newest first
-
-       -S     sort by file size, largest first
-
 NAME
        grep - print lines that match patterns
 
-SYNOPSIS
-       grep [OPTION...] PATTERNS [FILE...]
-
 DESCRIPTION
-       grep  searches  for  PATTERNS  in  each  FILE.   PATTERNS is one or
-       more patterns separated by newline characters, and grep prints  each
-       line that matches a pattern.
+       grep searches for PATTERNS in each FILE.
 
        -i, --ignore-case
               Ignore case distinctions in patterns and input data.
@@ -78,67 +256,58 @@ DESCRIPTION
 
        -r, --recursive
               Read all files under each directory, recursively.
-
-       -n, --line-number
-              Prefix each line of output with the 1-based line number.
-
-       -c, --count
-              Suppress normal output; instead print a count of matching
-              lines for each input file.
-
-NAME
-       find - search for files in a directory hierarchy
-
-SYNOPSIS
-       find [-H] [-L] [-P] [-D debugopts] [-Olevel] [starting-point...] [expression]
-
-DESCRIPTION
-       This  manual  page  documents  the  GNU version of find.  GNU find
-       searches the directory tree rooted at each given file name  by  evaluating
-       the  given  expression  from  left  to right.
-
-       -name pattern
-              Base of file name (the path with the leading directories removed)
-              matches shell pattern pattern.
-
-       -type c
-              File is of type c: f for regular file, d for directory,
-              l for symbolic link.
-
-       -mtime n
-              File's data was last modified less than, more than or exactly
-              n*24 hours ago.
-
-       -exec command ;
-              Execute command; true if 0 status is returned.
 """
 
 
-def fetch_manpage(cmd: str) -> str:
-    """Return plain-text man page for *cmd*, or empty string on failure."""
-    try:
-        result = subprocess.run(
-            ["man", cmd],
-            capture_output=True, text=True, timeout=5,
-            env={"MANPAGER": "cat", "TERM": "dumb", "PATH": "/usr/bin:/bin"},
-        )
-        return result.stdout
-    except Exception:
-        return ""
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
+def collect_corpus(
+    max_man_per_section: int = 200,
+    max_doc_files: int = 2000,
+    max_info_pages: int = 50,
+    verbose: bool = True,
+) -> str:
+    """
+    Collect all available Linux documentation.
+    Returns a single concatenated string ready for tokenisation.
+    """
+    parts: list[str] = []
 
-def collect_corpus(max_pages: int = 30) -> str:
-    """Fetch up to *max_pages* man pages; fall back to built-in corpus."""
-    pages = []
-    for cmd in LINUX_MANPAGES[:max_pages]:
-        text = fetch_manpage(cmd)
-        if text.strip():
-            pages.append(text)
+    if verbose:
+        print("  [1/4] man pages …")
+    man_text = collect_man_pages(max_per_section=max_man_per_section, verbose=verbose)
+    if man_text:
+        parts.append(man_text)
 
-    if not pages:
+    if verbose:
+        print("  [2/4] /usr/share/doc/ files …")
+    doc_text = collect_doc_files(max_files=max_doc_files, verbose=verbose)
+    if doc_text:
+        parts.append(doc_text)
+
+    if verbose:
+        print("  [3/4] GNU info pages …")
+    info_text = collect_info_pages(max_files=max_info_pages, verbose=verbose)
+    if info_text:
+        parts.append(info_text)
+
+    if verbose:
+        print("  [4/4] /etc/ config files …")
+    etc_text = collect_etc_files(verbose=verbose)
+    if etc_text:
+        parts.append(etc_text)
+
+    if not parts:
+        if verbose:
+            print("  WARNING: no sources found, using built-in fallback corpus")
         return FALLBACK_CORPUS
 
-    return "\n\n".join(pages)
+    full = "\n\n".join(parts)
+    if verbose:
+        print(f"  total corpus size: {len(full):,} chars ({len(full)//1024} KB)")
+    return full
 
 
 # ---------------------------------------------------------------------------
@@ -148,11 +317,7 @@ def collect_corpus(max_pages: int = 30) -> str:
 class TokenDataset:
     """Tokenised text split into overlapping context windows."""
 
-    def __init__(
-        self,
-        token_ids: list[int],
-        context_len: int,
-    ) -> None:
+    def __init__(self, token_ids: list[int], context_len: int) -> None:
         self.ids = np.array(token_ids, dtype=np.int32)
         self.T = context_len
 
@@ -163,7 +328,6 @@ class TokenDataset:
         i = i % max(1, len(self))
         x = self.ids[i : i + self.T]
         y = self.ids[i + 1 : i + 1 + self.T]
-        # pad to context_len if near end
         if len(x) < self.T:
             x = np.pad(x, (0, self.T - len(x)))
             y = np.pad(y, (0, self.T - len(y)))
@@ -177,8 +341,6 @@ class TokenDataset:
         return xs, ys
 
 
-def train_val_split(
-    ids: list[int], val_frac: float = 0.1
-) -> tuple[list[int], list[int]]:
+def train_val_split(ids: list[int], val_frac: float = 0.05) -> tuple[list[int], list[int]]:
     cut = int(len(ids) * (1 - val_frac))
     return ids[:cut], ids[cut:]
