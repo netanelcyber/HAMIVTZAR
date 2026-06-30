@@ -23,7 +23,7 @@ try:
     from nltk.stem import WordNetLemmatizer
 
     # Download required data silently
-    for pkg in ("punkt_tab", "stopwords", "wordnet", "omw-1.4"):
+    for pkg in ("punkt", "punkt_tab", "stopwords", "wordnet", "omw-1.4"):
         try:
             nltk.download(pkg, quiet=True)
         except Exception:
@@ -88,12 +88,12 @@ def clean_text(text: str) -> str:
 def sentence_split(text: str) -> list[str]:
     """Split text into sentences using NLTK punkt."""
     if not _NLTK_AVAILABLE:
-        # Naive fallback
         return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
     try:
         return sent_tokenize(text)
     except Exception:
-        return [text]
+        # Fallback: naive split
+        return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
 
 
 def word_tokenize_nltk(sentence: str) -> list[str]:
@@ -126,7 +126,7 @@ def analyze_corpus(text: str, top_n: int = 20) -> dict:
     try:
         words = word_tokenize(text.lower())
     except Exception:
-        words = text.lower().split()
+        words = re.findall(r"\b\w+\b", text.lower())
 
     total = len(words)
     unique = len(set(words))
@@ -139,10 +139,16 @@ def analyze_corpus(text: str, top_n: int = 20) -> dict:
 
     freq = Counter(content_words)
 
-    lemmatizer = WordNetLemmatizer() if _NLTK_AVAILABLE else None
+    try:
+        lemmatizer = WordNetLemmatizer() if _NLTK_AVAILABLE else None
+    except Exception:
+        lemmatizer = None
     top_lemmatised = []
     for word, count in freq.most_common(top_n):
-        lemma = lemmatizer.lemmatize(word) if lemmatizer else word
+        try:
+            lemma = lemmatizer.lemmatize(word) if lemmatizer else word
+        except Exception:
+            lemma = word
         top_lemmatised.append((lemma, count))
 
     return {
