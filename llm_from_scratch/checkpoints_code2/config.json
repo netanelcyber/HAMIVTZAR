@@ -1,0 +1,10 @@
+{
+  "vocab_size": 2000,
+  "context_len": 128,
+  "n_embed": 192,
+  "n_heads": 4,
+  "n_layers": 4,
+  "ff_mult": 4,
+  "dropout": 0.1,
+  "seed": 42
+}
