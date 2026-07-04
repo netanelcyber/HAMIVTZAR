@@ -21,6 +21,10 @@ plus two PowerShell scripts to check for them and fix them.
   `-WhatIf`-style dry run (prints what it *would* do); pass `-Apply` to
   actually change anything. Each check can be skipped individually.
 - `output/` — audit reports land here (gitignored).
+- `iso-autoinstall/` — bakes the hardening step into a Server 2019
+  installation ISO so it runs automatically at the end of Setup, before
+  first logon, with no manual step. See
+  [`iso-autoinstall/README.md`](iso-autoinstall/README.md).
 
 ## Usage
 

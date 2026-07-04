@@ -70,7 +70,10 @@ function Set-RegValue {
     New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType $Type -Force | Out-Null
 }
 
-if ($Apply -and -not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$isAdmin = ([Security.Principal.WindowsPrincipal]$currentIdentity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$isSystem = $currentIdentity.User.Value -eq 'S-1-5-18'  # NT AUTHORITY\SYSTEM, e.g. when run from SetupComplete.cmd
+if ($Apply -and -not ($isAdmin -or $isSystem)) {
     throw "Run this script from an elevated (Administrator) PowerShell session to use -Apply."
 }
 

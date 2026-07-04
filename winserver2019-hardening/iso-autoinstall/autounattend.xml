@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Unattended-install answer file for Windows Server 2019.
+
+  This only automates the SETUP WIZARD (disk layout, edition, locale,
+  local admin password, OOBE screens). The actual security hardening is
+  applied separately by sources\$OEM$\$$\Setup\Scripts\SetupComplete.cmd,
+  which Windows Setup runs automatically at the end of installation
+  regardless of whether you use this file or click through setup
+  manually. See ../README.md for how the two fit together and how to
+  inject both into an ISO.
+
+  BEFORE USE:
+    - Replace AAAAAAAA-ADMIN-PASSWORD-AAAAAAAA below with a real password,
+      or better, leave AdministratorPassword out entirely and set it
+      interactively / via your provisioning system instead (see README
+      "About the embedded admin password" section for why).
+    - Adjust ComputerName, TimeZone, and the ProductKey/edition index for
+      your environment.
+    - This assumes a single target disk (Disk 0) that will be WIPED.
+      Double-check DiskID if the target machine has multiple disks.
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+
+  <settings pass="windowsPE">
+    <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"
+               xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <SetupUILanguage>
+        <UILanguage>en-US</UILanguage>
+      </SetupUILanguage>
+      <InputLocale>en-US</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+
+    <component name="Microsoft-Windows-Setup" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"
+               xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <DiskConfiguration>
+        <Disk wcm:action="add">
+          <DiskID>0</DiskID>
+          <WillWipeDisk>true</WillWipeDisk>
+          <CreatePartitions>
+            <!-- EFI system partition -->
+            <CreatePartition wcm:action="add">
+              <Order>1</Order>
+              <Type>EFI</Type>
+              <Size>100</Size>
+            </CreatePartition>
+            <!-- Microsoft Reserved partition -->
+            <CreatePartition wcm:action="add">
+              <Order>2</Order>
+              <Type>MSR</Type>
+              <Size>16</Size>
+            </CreatePartition>
+            <!-- Windows partition (remaining space) -->
+            <CreatePartition wcm:action="add">
+              <Order>3</Order>
+              <Type>Primary</Type>
+              <Extend>true</Extend>
+            </CreatePartition>
+          </CreatePartitions>
+          <ModifyPartitions>
+            <ModifyPartition wcm:action="add">
+              <Order>1</Order>
+              <PartitionID>1</PartitionID>
+              <Format>FAT32</Format>
+              <Label>System</Label>
+            </ModifyPartition>
+            <ModifyPartition wcm:action="add">
+              <Order>2</Order>
+              <PartitionID>2</PartitionID>
+            </ModifyPartition>
+            <ModifyPartition wcm:action="add">
+              <Order>3</Order>
+              <PartitionID>3</PartitionID>
+              <Format>NTFS</Format>
+              <Label>Windows</Label>
+              <Letter>C</Letter>
+            </ModifyPartition>
+          </ModifyPartitions>
+        </Disk>
+      </DiskConfiguration>
+
+      <ImageInstall>
+        <OSImage>
+          <InstallTo>
+            <DiskID>0</DiskID>
+            <PartitionID>3</PartitionID>
+          </InstallTo>
+          <!--
+            Select the edition by index instead of a hard product key, so
+            you don't have to embed a real key in this file. Check the
+            actual index for your ISO with:
+              Get-WindowsImage -ImagePath D:\sources\install.wim
+            Typical Server 2019 combined-media indices:
+              1 = Standard (Server Core)
+              2 = Standard (Desktop Experience)
+              3 = Datacenter (Server Core)
+              4 = Datacenter (Desktop Experience)
+          -->
+          <InstallToAvailablePartition>false</InstallToAvailablePartition>
+          <InstallFrom>
+            <MetaData wcm:action="add">
+              <Key>/IMAGE/INDEX</Key>
+              <Value>2</Value>
+            </MetaData>
+          </InstallFrom>
+          <WillShowUI>OnError</WillShowUI>
+        </OSImage>
+      </ImageInstall>
+
+      <UserData>
+        <AcceptEula>true</AcceptEula>
+        <FullName>Administrator</FullName>
+        <Organization></Organization>
+        <!--
+          Optional: a Microsoft-published generic KMS client setup key
+          selects the edition without needing InstallFrom/MetaData above.
+          These are NOT a way around licensing - the host still needs
+          proper Volume Licensing/KMS or MAK activation. Uncomment ONE if
+          you'd rather pick edition this way instead of by index:
+            Standard:   N69G4-B89J2-4G8F4-WWYCC-J464C
+            Datacenter: WMDGN-G9PQG-XVVXX-R3X43-63DFG
+        -->
+        <!-- <ProductKey><Key>N69G4-B89J2-4G8F4-WWYCC-J464C</Key></ProductKey> -->
+      </UserData>
+    </component>
+  </settings>
+
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"
+               xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <ComputerName>WIN2019-SRV</ComputerName>
+      <TimeZone>UTC</TimeZone>
+    </component>
+  </settings>
+
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"
+               xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <UserAccounts>
+        <AdministratorPassword>
+          <!--
+            See README "About the embedded admin password" before using
+            this as-is - it is trivially recoverable from the ISO/answer
+            file, not a secure secret store. PlainText must stay "true"
+            for this element (Setup does not accept a pre-hashed value
+            here); protect the built ISO like a credential.
+          -->
+          <Value>AAAAAAAA-ADMIN-PASSWORD-AAAAAAAA</Value>
+          <PlainText>true</PlainText>
+        </AdministratorPassword>
+      </UserAccounts>
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <NetworkLocation>Work</NetworkLocation>
+        <ProtectYourPC>3</ProtectYourPC>
+        <SkipUserOOBE>true</SkipUserOOBE>
+        <SkipMachineOOBE>true</SkipMachineOOBE>
+      </OOBE>
+      <TimeZone>UTC</TimeZone>
+      <!--
+        Intentionally no AutoLogon element: SetupComplete.cmd (which does
+        the actual hardening) runs before any logon regardless, and
+        auto-logon would leave an interactive Administrator session
+        exposed on first boot. Log in manually after install completes.
+      -->
+    </component>
+  </settings>
+
+</unattend>
