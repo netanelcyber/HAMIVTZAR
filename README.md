@@ -143,8 +143,10 @@ linux_docs_llm/
   backends.py    Answer engines: extractive / ollama / llama-cpp / claude
   llm.py         Retrieve chunks and answer with the chosen backend
   cli.py         ingest / ask / chat commands
-data/docs/       Sample Linux documentation corpus
-tests/           Offline tests for ingestion, retrieval, and backends
+data/docs/                Sample Linux documentation corpus
+security_classifier/      Defensive static-analysis classifier for Python code
+scripts/fetch_benign_corpus.py   Clones legitimate SDKs for classifier training data
+tests/                    Offline tests for ingestion, retrieval, backends, and the classifier
 ```
 
 ## How it works
@@ -163,12 +165,56 @@ tests/           Offline tests for ingestion, retrieval, and backends
 If retrieval finds nothing relevant, the system answers immediately without
 calling any backend, so it never invents an answer from thin air.
 
+## Security classifier
+
+`security_classifier/` is a separate, defensive tool: a static-analysis
+classifier that flags structurally suspicious Python files (suspicious
+imports, dynamic execution, obfuscation, network/persistence indicators). It
+never executes the code it analyzes — only `ast.parse` and string inspection.
+
+**Data sourcing is deliberate and scoped:**
+
+- **Benign class** — real Python source *you* fetch yourself. Run
+  `python scripts/fetch_benign_corpus.py` to `git clone` a small allowlist of
+  legitimate, permissively-licensed security-vendor SDKs (seeded with
+  [CrowdStrike FalconPy](https://github.com/CrowdStrike/falconpy), Unlicense)
+  into `data/security/benign/`. Nothing is fetched automatically — you run
+  this script, on your machine, when you choose to.
+- **Malicious class** — must be real, labeled samples *you* supply in an
+  isolated directory via `--malicious-dir`. Without one, a small hand-authored
+  set of **synthetic feature vectors** (numbers, not code) stands in so the
+  pipeline runs end to end — see the module docstring in `dataset.py` for
+  exactly what that placeholder is and isn't.
+- This module does not fetch, vendor, or train on offensive/exploitation
+  tooling or unvetted "attack code" scraped from the internet.
+
+```bash
+pip install scikit-learn joblib
+
+# optional: fetch real benign training data
+python scripts/fetch_benign_corpus.py
+
+# train (uses synthetic placeholders for any class with no --*-dir given)
+python -m security_classifier.train --benign-dir data/security/benign/falconpy
+
+# score a file or directory
+python -m security_classifier.classify path/to/file_or_dir.py
+```
+
+With only the synthetic placeholder data on both sides, the model is a
+pipeline demo, not an accurate classifier — in testing it even flagged this
+repo's own `linux_docs_llm/backends.py` as suspicious. Real accuracy requires
+real, representative samples for both classes.
+
 ## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Covers tokenization, chunking, BM25 ranking, index save/load round-tripping, the
-extractive backend, and backend resolution (including that `auto` never selects
-the online Claude backend). Runs fully offline.
+Covers tokenization, chunking, BM25 ranking, index save/load round-tripping,
+the extractive backend, backend resolution (including that `auto` never
+selects the online Claude backend), and the security classifier's feature
+extraction / dataset assembly / training pipeline. Runs fully offline; the two
+end-to-end training tests skip automatically if `scikit-learn`/`joblib` aren't
+installed.

@@ -12,3 +12,8 @@
 #
 #   Claude (--backend claude): online, requires ANTHROPIC_API_KEY.
 #     pip install "anthropic>=0.40"
+#
+# security_classifier/ (defensive static-analysis classifier for Python code,
+# see README "Security classifier" section) needs:
+#     pip install scikit-learn joblib
+# Feature extraction itself (security_classifier/features.py) is stdlib-only.
