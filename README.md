@@ -143,10 +143,15 @@ linux_docs_llm/
   backends.py    Answer engines: extractive / ollama / llama-cpp / claude
   llm.py         Retrieve chunks and answer with the chosen backend
   cli.py         ingest / ask / chat commands
-data/docs/                Sample Linux documentation corpus
-security_classifier/      Defensive static-analysis classifier for Python code
-scripts/fetch_benign_corpus.py   Clones legitimate SDKs for classifier training data
-tests/                    Offline tests for ingestion, retrieval, backends, and the classifier
+data/docs/                        Sample Linux documentation corpus
+security_classifier/              Defensive static + optional dynamic classifier for Python code
+  features.py                       Static AST-based feature extraction (never executes code)
+  dynamic_features.py               Parses a runtime trace you collected (never executes code)
+  dataset.py / train.py / analyze.py   Dataset assembly, training, cross-validated analytics
+  classify.py / explain.py          Score a file; natural-language summary of the finding
+scripts/fetch_benign_corpus.py    Clones legitimate SDKs for classifier training data
+scripts/sandboxed_trace.sh        Template: collect a runtime trace on YOUR isolated sandbox
+tests/                            Offline tests for ingestion, retrieval, backends, and the classifier
 ```
 
 ## How it works
@@ -225,8 +230,43 @@ train on it (cross-validation), so the report isn't just memorized accuracy.
 
 With only the synthetic placeholder data on both sides, the model is a
 pipeline demo, not an accurate classifier — in testing it even flagged this
-repo's own `linux_docs_llm/backends.py` as suspicious. Real accuracy requires
-real, representative samples for both classes.
+repo's own `linux_docs_llm/backends.py` as suspicious (a real false-positive
+bug, since fixed — see `security_classifier/features.py`'s handling of
+`eval`/`exec`/`compile`). Real accuracy requires real, representative samples
+for both classes.
+
+**Static analysis alone has real limits.** Scanning
+[sqlmap](https://github.com/sqlmapproject/sqlmap) (a legitimate, widely-used
+pentest tool — not malware) flagged 80/589 files, and the top hits were mostly
+false positives: a self-update mechanism using `subprocess(shell=True)`, a
+Windows-compat shim using `ctypes`+`socket`, a git-revision lookup, and a
+deliberately-vulnerable test fixture bundled for sqlmap's own test suite.
+Structural patterns alone can't distinguish "does this dangerous-looking
+thing" from "actually attacks something."
+
+### Dynamic (behavioral) analysis — optional, and never executed by this project
+
+`security_classifier/dynamic_features.py` adds a second signal: what code
+*actually does* at runtime (network connections, file writes, processes
+spawned), parsed from a trace **you** collect. This module and everything else
+in this repository **never executes the code being analyzed** — that
+execution step must happen on infrastructure you control, fully isolated from
+this project's own environment.
+
+```bash
+# On YOUR OWN disposable, network-isolated machine — never here:
+./scripts/sandboxed_trace.sh path/to/suspect.py trace.jsonl
+
+# Then, back wherever you're running the classifier:
+python -m security_classifier.classify path/to/suspect.py --explain --trace trace.jsonl
+```
+
+`scripts/sandboxed_trace.sh` is a heavily-commented template (Docker,
+`--network none`, dropped capabilities, a hard timeout, `strace`) for
+collecting that trace safely — read its warning header before using it. When a
+trace is supplied, `--explain` treats observed behavior (an actual outbound
+connection, an actual write to an autostart location) as stronger evidence
+than static structure alone.
 
 ## Tests
 

@@ -7,6 +7,10 @@ Usage:
     # also summarize what each file appears to do, in natural language
     python -m security_classifier.classify path/to/file.py --explain
     python -m security_classifier.classify path/to/file.py --explain --explain-backend ollama
+
+    # fold in a sandboxed runtime trace you collected yourself (see
+    # scripts/sandboxed_trace.sh) -- only meaningful for a single file
+    python -m security_classifier.classify path/to/file.py --explain --trace trace.jsonl
 """
 
 from __future__ import annotations
@@ -14,7 +18,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Iterator
+from typing import Iterator, Optional
 
 from .features import extract_features
 from .train import DEFAULT_MODEL_PATH
@@ -36,6 +40,15 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", help="a .py file or a directory to scan")
     parser.add_argument("--model-path", default=DEFAULT_MODEL_PATH)
+    parser.add_argument(
+        "--trace",
+        default=None,
+        help=(
+            "path to a JSON-Lines runtime trace collected on YOUR OWN isolated "
+            "sandbox (see scripts/sandboxed_trace.sh) -- never collected by this "
+            "command. Only meaningful when scanning a single file."
+        ),
+    )
     parser.add_argument(
         "--explain",
         action="store_true",
@@ -71,7 +84,21 @@ def main(argv=None) -> int:
         print(f"error: target not found: {args.target}", file=sys.stderr)
         return 1
 
+    if args.trace and not os.path.isfile(args.target):
+        print("error: --trace only applies when scanning a single file.", file=sys.stderr)
+        return 1
+
+    if args.trace and not os.path.exists(args.trace):
+        print(f"error: trace file not found: {args.trace}", file=sys.stderr)
+        return 1
+
     clf = joblib.load(args.model_path)
+
+    dynamic = None
+    if args.trace:
+        from .dynamic_features import extract_dynamic_features, load_trace
+
+        dynamic = extract_dynamic_features(load_trace(args.trace))
 
     for path in _iter_targets(args.target):
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
@@ -89,6 +116,7 @@ def main(argv=None) -> int:
                 path,
                 features,
                 malicious_score,
+                dynamic=dynamic,
                 backend=args.explain_backend,
                 ollama_model=args.ollama_model,
                 ollama_url=args.ollama_url,

@@ -220,5 +220,81 @@ class ExplainTests(unittest.TestCase):
         self.assertIn("benign", summary)
 
 
+class DynamicFeaturesTests(unittest.TestCase):
+    """The dynamic-analysis trace parser. Only ever parses pre-collected JSON
+    events -- nothing here executes anything, so these tests are as offline
+    and safe as every other test in this suite."""
+
+    def test_extract_dynamic_features_counts_events(self):
+        from security_classifier.dynamic_features import extract_dynamic_features
+
+        events = [
+            {"type": "network_connect", "host": "10.0.0.1", "port": 4444},
+            {"type": "network_connect", "host": "10.0.0.1", "port": 4444},
+            {"type": "network_connect", "host": "10.0.0.2", "port": 80},
+            {"type": "dns_lookup", "domain": "example.com"},
+            {"type": "file_write", "path": "/tmp/scratch/out.txt"},
+            {"type": "file_write", "path": "/home/user/.bashrc"},
+            {"type": "subprocess", "cmd": "/bin/ls"},
+        ]
+        f = extract_dynamic_features(events)
+        self.assertEqual(f.num_network_connections, 3)
+        self.assertEqual(f.unique_remote_hosts, 2)
+        self.assertEqual(f.num_dns_lookups, 1)
+        self.assertEqual(f.num_files_written, 2)
+        self.assertEqual(f.num_persistence_writes, 1)  # only the .bashrc write
+        self.assertEqual(f.num_subprocess_spawned, 1)
+
+    def test_empty_trace_yields_zeroed_features(self):
+        from security_classifier.dynamic_features import extract_dynamic_features
+
+        f = extract_dynamic_features([])
+        self.assertEqual(f.to_vector(), [0.0] * len(f.to_vector()))
+
+    def test_unrecognized_event_types_are_ignored(self):
+        from security_classifier.dynamic_features import extract_dynamic_features
+
+        f = extract_dynamic_features([{"type": "some_future_event", "foo": "bar"}])
+        self.assertEqual(sum(f.to_vector()), 0.0)
+
+    def test_load_trace_skips_blank_and_malformed_lines(self):
+        from security_classifier.dynamic_features import load_trace
+
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
+            fh.write('{"type": "dns_lookup", "domain": "a.com"}\n')
+            fh.write("\n")
+            fh.write("not json at all\n")
+            fh.write('{"type": "subprocess", "cmd": "id"}\n')
+            path = fh.name
+        try:
+            events = load_trace(path)
+            self.assertEqual(len(events), 2)
+        finally:
+            os.unlink(path)
+
+    def test_explain_incorporates_dynamic_trace(self):
+        from security_classifier.dynamic_features import DynamicFeatures
+        from security_classifier.explain import summarize
+        from security_classifier.features import extract_features
+
+        f = extract_features(BENIGN_SNIPPET)  # weak/no static signal
+        dynamic = DynamicFeatures(
+            num_network_connections=1,
+            unique_remote_hosts=1,
+            num_persistence_writes=1,
+        )
+        summary = summarize("x.py", f, score=0.2, dynamic=dynamic, backend="template")
+        self.assertIn("sandboxed trace", summary)
+        self.assertIn("persistence", summary)
+
+    def test_explain_notes_absence_of_trace(self):
+        from security_classifier.explain import summarize
+        from security_classifier.features import extract_features
+
+        f = extract_features(BENIGN_SNIPPET)
+        summary = summarize("x.py", f, score=0.2, dynamic=None, backend="template")
+        self.assertIn("No sandboxed dynamic trace", summary)
+
+
 if __name__ == "__main__":
     unittest.main()

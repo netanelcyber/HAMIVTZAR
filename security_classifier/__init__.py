@@ -19,10 +19,16 @@ This module intentionally does not include, fetch, or train on offensive
 tooling (exploitation frameworks, autonomous pentesting agents) or
 unvetted/scraped "attack code" — only structural pattern recognition over
 labeled data you provide.
+
+Optional dynamic (behavioral) analysis — see ``dynamic_features.py`` — only
+ever *parses* a runtime trace you collected yourself on your own isolated
+sandbox (``scripts/sandboxed_trace.sh``). Nothing in this package executes the
+code it analyzes, static or dynamic.
 """
 
-from .features import Features, FEATURE_NAMES, extract_features
-from .dataset import build_dataset, load_labeled_directory, BENIGN, MALICIOUS
+from .dataset import BENIGN, MALICIOUS, build_dataset, load_labeled_directory
+from .dynamic_features import DynamicFeatures, extract_dynamic_features, load_trace
+from .features import FEATURE_NAMES, Features, extract_features
 
 __all__ = [
     "Features",
@@ -32,4 +38,7 @@ __all__ = [
     "load_labeled_directory",
     "BENIGN",
     "MALICIOUS",
+    "DynamicFeatures",
+    "extract_dynamic_features",
+    "load_trace",
 ]

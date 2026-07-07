@@ -29,6 +29,7 @@ from linux_docs_llm.backends import (
     OllamaAnswerer,
 )
 
+from .dynamic_features import DynamicFeatures
 from .features import Features
 
 OnText = Optional[Callable[[str], None]]
@@ -36,24 +37,43 @@ OnText = Optional[Callable[[str], None]]
 EXPLAIN_SYSTEM_PROMPT = """\
 You are a security analyst assistant. You will be given the structural \
 features and probability score a static-analysis classifier computed for one \
-Python file — never the raw source itself. Summarize, in plain language for a \
-non-expert, what the code most likely does structurally and whether that \
-looks benign or malicious.
+Python file -- never the raw source itself -- and, if available, a summary of \
+its OBSERVED runtime behavior from a sandboxed dynamic trace (network \
+connections, file writes, processes spawned). Summarize, in plain language for \
+a non-expert, what the code most likely does and whether that looks benign or \
+malicious.
 
 Rules:
-- Base everything ONLY on the feature values given. Do not invent behavior \
-the features don't support, and do not claim to have seen the actual source.
+- Base everything ONLY on the feature/trace values given. Do not invent \
+behavior they don't support, and do not claim to have seen the actual source.
+- If a dynamic trace is present, treat observed behavior as stronger evidence \
+than static structure alone -- an actual outbound connection or a write to an \
+autostart location, if observed, is more meaningful than a structural hint.
 - State plainly whether this looks more benign or more suspicious, citing the \
-specific features that drove that call.
-- If the signal is weak or mixed, say so — do not overstate confidence.
+specific evidence that drove that call.
+- If the signal is weak, mixed, or no dynamic trace was available, say so — \
+do not overstate confidence.
 - Keep it to 3-5 sentences. No headers, no bullet lists.\
 """
 
 
-def _build_user_message(path: str, features: Features, score: float) -> str:
-    lines = [f"File: {path}", f"Classifier score (P[malicious]): {score:.2f}", "", "Features:"]
+def _build_user_message(
+    path: str,
+    features: Features,
+    score: float,
+    dynamic: Optional[DynamicFeatures] = None,
+) -> str:
+    lines = [f"File: {path}", f"Classifier score (P[malicious]): {score:.2f}", "", "Static features:"]
     for name, value in features.to_dict().items():
         lines.append(f"  {name}: {value}")
+    if dynamic is not None:
+        lines.append("")
+        lines.append("Observed runtime behavior (from a sandboxed trace):")
+        for name, value in dynamic.to_dict().items():
+            lines.append(f"  {name}: {value}")
+    else:
+        lines.append("")
+        lines.append("No dynamic trace was provided -- this is static analysis only.")
     return "\n".join(lines)
 
 
@@ -67,7 +87,33 @@ _INDICATOR_LABELS = {
 }
 
 
-def _template_summary(path: str, features: Features, score: float) -> str:
+def _dynamic_sentence(dynamic: Optional[DynamicFeatures]) -> str:
+    if dynamic is None:
+        return "No sandboxed dynamic trace was provided, so this is static analysis only."
+    d = dynamic.to_dict()
+    observed = []
+    if d["num_network_connections"]:
+        observed.append(
+            f"{int(d['num_network_connections'])} outbound network connection(s) "
+            f"to {int(d['unique_remote_hosts'])} host(s)"
+        )
+    if d["num_persistence_writes"]:
+        observed.append(f"{int(d['num_persistence_writes'])} write(s) to an autostart/persistence location")
+    if d["num_files_written"]:
+        observed.append(f"{int(d['num_files_written'])} file write(s) overall")
+    if d["num_subprocess_spawned"]:
+        observed.append(f"{int(d['num_subprocess_spawned'])} subprocess(es) spawned")
+    if observed:
+        return "In the sandboxed trace, it actually " + "; ".join(observed) + "."
+    return "In the sandboxed trace it ran without any observed network, file-write, or subprocess activity."
+
+
+def _template_summary(
+    path: str,
+    features: Features,
+    score: float,
+    dynamic: Optional[DynamicFeatures] = None,
+) -> str:
     """Deterministic, dependency-free natural-language summary. Always works."""
     d = features.to_dict()
     triggered = [_INDICATOR_LABELS[name] for name in _INDICATOR_LABELS if d.get(name)]
@@ -92,13 +138,7 @@ def _template_summary(path: str, features: Features, score: float) -> str:
         f"from the watched list) across {int(d['num_functions'])} function(s) and "
         f"{int(d['num_lines'])} lines."
     )
-    if score < 0.5:
-        sentence4 = "Overall this reads as ordinary application code rather than an attack pattern."
-    else:
-        sentence4 = (
-            "The combination above is the kind of pattern static malware "
-            "detectors flag for closer human review, not a confirmed verdict."
-        )
+    sentence4 = _dynamic_sentence(dynamic)
     return " ".join([sentence1, sentence2, sentence3, sentence4])
 
 
@@ -106,17 +146,23 @@ def summarize(
     path: str,
     features: Features,
     score: float,
+    dynamic: Optional[DynamicFeatures] = None,
     backend: str = "auto",
     on_text: OnText = None,
     **backend_opts,
 ) -> str:
     """Return a natural-language summary of one classifier finding.
 
+    ``dynamic``, if given, is the parsed output of a sandboxed runtime trace
+    (see ``security_classifier.dynamic_features`` and
+    ``scripts/sandboxed_trace.sh``) -- collected on the caller's own isolated
+    infrastructure, never executed by this function.
+
     ``backend`` follows the same names as ``linux_docs_llm``: ``auto`` (local
     LLM if available, else the offline template), ``ollama``, ``llama-cpp``,
     ``claude`` (online, opt-in), or ``template`` (force the offline fallback).
     """
-    user_message = _build_user_message(path, features, score)
+    user_message = _build_user_message(path, features, score, dynamic)
 
     engine = None
     if backend in ("auto", "ollama"):
@@ -140,7 +186,7 @@ def summarize(
     if engine is not None:
         return engine.generate(EXPLAIN_SYSTEM_PROMPT, user_message, on_text)
 
-    text = _template_summary(path, features, score)
+    text = _template_summary(path, features, score, dynamic)
     if on_text:
         on_text(text)
     return text
