@@ -1,0 +1,19 @@
+# Core retrieval + the default offline "extractive" answer backend need NO
+# third-party packages — they run on the Python standard library alone.
+#
+# Optional answer backends (install only the one you want):
+#
+#   Ollama (--backend ollama): install the Ollama daemon from https://ollama.com
+#     then `ollama pull llama3.2`. No Python package required (uses the daemon's
+#     local HTTP API). Fully offline once the model is pulled.
+#
+#   llama.cpp (--backend llama-cpp): a local GGUF model.
+#     pip install "llama-cpp-python>=0.2"
+#
+#   Claude (--backend claude): online, requires ANTHROPIC_API_KEY.
+#     pip install "anthropic>=0.40"
+#
+# security_classifier/ (defensive static-analysis classifier for Python code,
+# see README "Security classifier" section) needs:
+#     pip install scikit-learn joblib
+# Feature extraction itself (security_classifier/features.py) is stdlib-only.
