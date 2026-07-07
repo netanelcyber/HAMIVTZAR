@@ -128,5 +128,39 @@ class TrainingPipelineTests(unittest.TestCase):
             self.assertEqual(len(proba), 2)
 
 
+class AnalyticsTests(unittest.TestCase):
+    def test_analyze_runs_on_synthetic_data(self):
+        try:
+            import sklearn  # noqa: F401
+        except ImportError:
+            self.skipTest("scikit-learn not installed")
+
+        import io
+        from contextlib import redirect_stdout
+
+        from security_classifier.analyze import analyze
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            analyze(benign_dir=None, malicious_dir=None)
+        output = buf.getvalue()
+
+        self.assertIn("Cross-validated accuracy", output)
+        self.assertIn("Feature importances", output)
+        self.assertIn("Score statistics", output)
+
+    def test_analyze_requires_at_least_two_samples_per_class(self):
+        try:
+            import sklearn  # noqa: F401
+        except ImportError:
+            self.skipTest("scikit-learn not installed")
+
+        from security_classifier.analyze import analyze
+
+        with tempfile.TemporaryDirectory() as empty_dir:
+            with self.assertRaises(SystemExit):
+                analyze(benign_dir=empty_dir, malicious_dir=None)
+
+
 if __name__ == "__main__":
     unittest.main()

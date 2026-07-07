@@ -199,7 +199,16 @@ python -m security_classifier.train --benign-dir data/security/benign/falconpy
 
 # score a file or directory
 python -m security_classifier.classify path/to/file_or_dir.py
+
+# analytics report: cross-validated per-sample scores, class statistics,
+# and feature importances over whatever data is currently configured
+python -m security_classifier.analyze
 ```
+
+`analyze` never fetches or generates new code samples — it only reports on
+data already in the pipeline (real directories if given, the synthetic
+placeholder set otherwise), and scores each sample with a model that did not
+train on it (cross-validation), so the report isn't just memorized accuracy.
 
 With only the synthetic placeholder data on both sides, the model is a
 pipeline demo, not an accurate classifier — in testing it even flagged this
