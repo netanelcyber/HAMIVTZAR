@@ -13,6 +13,12 @@ touches the network.
 Every backend implements :meth:`Answerer.answer`, taking the question and the
 retrieved ``(chunk, score)`` results and returning the answer text. An optional
 ``on_text`` callback receives streamed deltas for live terminal output.
+
+The model-backed backends (Ollama, llama.cpp, Claude) also expose a lower-level
+:meth:`ModelBackedAnswerer.generate` — "send this system + user message, stream
+text back" — reused outside RAG question-answering too, e.g. by
+``security_classifier.explain`` to turn classifier findings into a natural
+language explanation with the same offline-first backend selection.
 """
 
 from __future__ import annotations
@@ -140,6 +146,24 @@ class ExtractiveAnswerer(Answerer):
         return text
 
 
+class ModelBackedAnswerer(Answerer):
+    """Base for backends that call a real language model.
+
+    Subclasses implement :meth:`generate` — the low-level "send a system +
+    user message, stream text back" primitive. :meth:`answer` (the RAG
+    question-answering entry point) is implemented once, here, in terms of it;
+    other callers (e.g. ``security_classifier.explain``) can call
+    :meth:`generate` directly for non-RAG natural-language tasks.
+    """
+
+    def generate(self, system: str, user_message: str, on_text: OnText = None) -> str:
+        raise NotImplementedError
+
+    def answer(self, question: str, results: Results, on_text: OnText = None) -> str:
+        user_message = build_user_message(question, format_context(results))
+        return self.generate(SYSTEM_PROMPT, user_message, on_text)
+
+
 # --------------------------------------------------------------------------- #
 # Offline: Ollama (local LLM daemon)                                           #
 # --------------------------------------------------------------------------- #
@@ -151,8 +175,8 @@ def _no_proxy_opener() -> urllib.request.OpenerDirector:
     return urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-class OllamaAnswerer(Answerer):
-    """Stream an answer from a local `Ollama <https://ollama.com>`_ daemon.
+class OllamaAnswerer(ModelBackedAnswerer):
+    """Stream a response from a local `Ollama <https://ollama.com>`_ daemon.
 
     Fully offline once the model is pulled (``ollama pull llama3.2``). Talks to
     the daemon's HTTP API with the standard library only — no extra packages.
@@ -173,12 +197,11 @@ class OllamaAnswerer(Answerer):
         except Exception:
             return False
 
-    def answer(self, question: str, results: Results, on_text: OnText = None) -> str:
-        user_message = build_user_message(question, format_context(results))
+    def generate(self, system: str, user_message: str, on_text: OnText = None) -> str:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": user_message},
             ],
             "stream": True,
@@ -211,7 +234,7 @@ class OllamaAnswerer(Answerer):
 # --------------------------------------------------------------------------- #
 
 
-class LlamaCppAnswerer(Answerer):
+class LlamaCppAnswerer(ModelBackedAnswerer):
     """Run a local GGUF model via ``llama-cpp-python`` — fully offline.
 
     Requires ``pip install llama-cpp-python`` and a model file, e.g.::
@@ -242,12 +265,11 @@ class LlamaCppAnswerer(Answerer):
             self._llm = Llama(model_path=self.model_path, n_ctx=self.n_ctx, verbose=False)
         return self._llm
 
-    def answer(self, question: str, results: Results, on_text: OnText = None) -> str:
+    def generate(self, system: str, user_message: str, on_text: OnText = None) -> str:
         llm = self._load()
-        user_message = build_user_message(question, format_context(results))
         stream = llm.create_chat_completion(
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": user_message},
             ],
             temperature=0.2,
@@ -270,7 +292,7 @@ class LlamaCppAnswerer(Answerer):
 DEFAULT_CLAUDE_MODEL = "claude-opus-4-8"
 
 
-class ClaudeAnswerer(Answerer):
+class ClaudeAnswerer(ModelBackedAnswerer):
     """Answer with Claude via the Anthropic API. Requires network + an API key.
 
     This is the only online backend and is never chosen by ``auto``.
@@ -302,15 +324,14 @@ class ClaudeAnswerer(Answerer):
             self._client = anthropic.Anthropic()
         return self._client
 
-    def answer(self, question: str, results: Results, on_text: OnText = None) -> str:
+    def generate(self, system: str, user_message: str, on_text: OnText = None) -> str:
         client = self._client_or_create()
-        user_message = build_user_message(question, format_context(results))
         parts: List[str] = []
         with client.messages.stream(
             model=self.model,
             max_tokens=self.max_tokens,
             thinking={"type": "adaptive"},
-            system=SYSTEM_PROMPT,
+            system=system,
             messages=[{"role": "user", "content": user_message}],
         ) as stream:
             for text in stream.text_stream:

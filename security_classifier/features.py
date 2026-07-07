@@ -110,7 +110,10 @@ class _Visitor(ast.NodeVisitor):
         name = self._callable_name(node.func)
         root = self._attr_root(node.func)
 
-        if name in ("eval", "exec", "compile"):
+        # eval/exec/compile are builtins, called bare (`compile(...)`), not as
+        # an attribute of some other object -- `re.compile(...)` is an
+        # unrelated, harmless regex compilation and must not count here.
+        if isinstance(node.func, ast.Name) and name in ("eval", "exec", "compile"):
             self.has_eval_exec = True
         if name == "system" and root == "os":
             self.has_os_system = True

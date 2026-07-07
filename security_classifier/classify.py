@@ -3,6 +3,10 @@
 Usage:
     python -m security_classifier.classify path/to/file_or_dir
     python -m security_classifier.classify path/to/file.py --model-path custom.joblib
+
+    # also summarize what each file appears to do, in natural language
+    python -m security_classifier.classify path/to/file.py --explain
+    python -m security_classifier.classify path/to/file.py --explain --explain-backend ollama
 """
 
 from __future__ import annotations
@@ -14,6 +18,8 @@ from typing import Iterator
 
 from .features import extract_features
 from .train import DEFAULT_MODEL_PATH
+
+BACKEND_CHOICES = ["auto", "template", "ollama", "llama-cpp", "claude"]
 
 
 def _iter_targets(path: str) -> Iterator[str]:
@@ -30,6 +36,21 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", help="a .py file or a directory to scan")
     parser.add_argument("--model-path", default=DEFAULT_MODEL_PATH)
+    parser.add_argument(
+        "--explain",
+        action="store_true",
+        help="also print a natural-language summary of what each file appears to do",
+    )
+    parser.add_argument(
+        "--explain-backend",
+        choices=BACKEND_CHOICES,
+        default="auto",
+        help="engine for --explain (default: auto -- local LLM if available, else an offline template)",
+    )
+    parser.add_argument("--ollama-model", default="llama3.2")
+    parser.add_argument("--ollama-url", default=None)
+    parser.add_argument("--llm-model-path", default=None, help="GGUF model path for --explain-backend llama-cpp")
+    parser.add_argument("--claude-model", default=None, help="Claude model id for --explain-backend claude")
     args = parser.parse_args(argv)
 
     try:
@@ -55,11 +76,26 @@ def main(argv=None) -> int:
     for path in _iter_targets(args.target):
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             source = fh.read()
-        vector = extract_features(source).to_vector()
-        proba = clf.predict_proba([vector])[0]
+        features = extract_features(source)
+        proba = clf.predict_proba([features.to_vector()])[0]
         malicious_score = proba[1] if len(proba) > 1 else 0.0
         label = "MALICIOUS" if malicious_score >= 0.5 else "benign"
         print(f"{malicious_score:5.2f}  {label:9s}  {path}")
+
+        if args.explain:
+            from .explain import summarize
+
+            summary = summarize(
+                path,
+                features,
+                malicious_score,
+                backend=args.explain_backend,
+                ollama_model=args.ollama_model,
+                ollama_url=args.ollama_url,
+                model_path=args.llm_model_path,
+                model=args.claude_model,
+            )
+            print(f"        {summary}\n")
 
     return 0
 

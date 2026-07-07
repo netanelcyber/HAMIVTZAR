@@ -200,10 +200,23 @@ python -m security_classifier.train --benign-dir data/security/benign/falconpy
 # score a file or directory
 python -m security_classifier.classify path/to/file_or_dir.py
 
+# also summarize what each file appears to do, in plain language
+python -m security_classifier.classify path/to/file_or_dir.py --explain
+
 # analytics report: cross-validated per-sample scores, class statistics,
 # and feature importances over whatever data is currently configured
 python -m security_classifier.analyze
 ```
+
+**`--explain`** turns a finding into a natural-language summary of what the
+code structurally appears to do (imports, dynamic execution, network/
+persistence indicators) and why it scored the way it did — for benign and
+malicious verdicts alike. The model is only ever shown the extracted feature
+values, never the raw source. Offline-first, same as `linux_docs_llm`:
+`--explain-backend auto` (default) tries a local LLM (Ollama, then llama.cpp)
+and always falls back to a deterministic, dependency-free template if none is
+available — so it produces a summary even fully disconnected. `claude` is
+opt-in only (`--explain-backend claude`) and is never selected by `auto`.
 
 `analyze` never fetches or generates new code samples — it only reports on
 data already in the pipeline (real directories if given, the synthetic

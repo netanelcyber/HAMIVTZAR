@@ -54,6 +54,17 @@ class FeatureExtractionTests(unittest.TestCase):
         f = extract_features("def broken(:\n    pass")
         self.assertEqual(f.num_functions, 0)
 
+    def test_re_compile_is_not_flagged_as_eval_exec(self):
+        # re.compile(...) is an unrelated, harmless regex call -- it must not
+        # trip the eval/exec/compile indicator just because the attribute
+        # name happens to be "compile".
+        f = extract_features("import re\nPATTERN = re.compile(r'[a-z]+')\n")
+        self.assertEqual(f.has_eval_exec, 0)
+
+    def test_bare_compile_call_is_flagged(self):
+        f = extract_features("code = compile('1+1', '<string>', 'eval')\n")
+        self.assertEqual(f.has_eval_exec, 1)
+
     def test_never_executes_source(self):
         # If this were executed, it would raise SystemExit / crash the test run.
         f = extract_features("import sys\nsys.exit(1)\n")
@@ -160,6 +171,53 @@ class AnalyticsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as empty_dir:
             with self.assertRaises(SystemExit):
                 analyze(benign_dir=empty_dir, malicious_dir=None)
+
+
+class ExplainTests(unittest.TestCase):
+    """The natural-language summary layer. Forcing backend='template' keeps
+    these fully offline and deterministic -- no LLM, no network required."""
+
+    def test_template_backend_summarizes_benign_finding(self):
+        from security_classifier.explain import summarize
+        from security_classifier.features import extract_features
+
+        f = extract_features(BENIGN_SNIPPET)
+        summary = summarize("greet.py", f, score=0.1, backend="template")
+        self.assertIn("benign", summary)
+        self.assertIn("greet.py", summary)
+
+    def test_template_backend_summarizes_malicious_finding(self):
+        from security_classifier.explain import summarize
+        from security_classifier.features import extract_features
+
+        f = extract_features(SUSPICIOUS_SNIPPET)
+        summary = summarize("loader.py", f, score=0.9, backend="template")
+        self.assertIn("malicious", summary)
+        # cites at least one concrete triggered indicator, not just the verdict
+        self.assertTrue(
+            any(word in summary for word in ("shell", "base64", "network", "decoding"))
+        )
+
+    def test_template_never_calls_a_model(self):
+        # backend='template' must never try Ollama/llama.cpp/Claude, so this
+        # must succeed even with no network and no local daemon.
+        from security_classifier.explain import summarize
+        from security_classifier.features import extract_features
+
+        f = extract_features(BENIGN_SNIPPET)
+        summary = summarize("x.py", f, score=0.2, backend="template", on_text=None)
+        self.assertIsInstance(summary, str)
+        self.assertGreater(len(summary), 0)
+
+    def test_auto_falls_back_to_template_when_no_local_llm(self):
+        from security_classifier.explain import summarize
+        from security_classifier.features import extract_features
+
+        f = extract_features(BENIGN_SNIPPET)
+        # No Ollama daemon / GGUF model configured in the test environment,
+        # so auto must land on the same offline template path.
+        summary = summarize("x.py", f, score=0.1, backend="auto")
+        self.assertIn("benign", summary)
 
 
 if __name__ == "__main__":
