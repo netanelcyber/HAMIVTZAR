@@ -160,48 +160,61 @@ class Parser:
                 self.expect("NEWLINE")
                 continue
             if self.check("PARAMETER"):
-                # PARAMETER (name = value, ...) -- accept and skip (treated as ordinary consts not required by examples)
-                self.advance()
-                self.expect("(")
-                depth = 1
-                while depth > 0:
-                    t = self.advance()
-                    if t.kind == "(":
-                        depth += 1
-                    elif t.kind == ")":
-                        depth -= 1
-                self.expect("NEWLINE")
-                continue
+                t = self.cur()
+                raise ParseError(
+                    f"line {t.line}: standalone PARAMETER (name = value, ...) statements are "
+                    f"not supported; declare the constant with its type instead, e.g. "
+                    f"'INTEGER, PARAMETER :: name = value'")
             decls.append(self.parse_decl())
         body = self.parse_stmt_list()
         return decls, body
 
+    ATTR_KEYWORDS = ("PARAMETER", "INTENT", "DIMENSION")
+
     def parse_decl(self):
         typ = self.parse_type_spec()
+        is_parameter = False
+        default_dims = None
+        while self.check(",") and self.toks[self.pos + 1].kind in self.ATTR_KEYWORDS:
+            self.advance()  # ','
+            attr = self.advance()
+            if attr.kind == "PARAMETER":
+                is_parameter = True
+            elif attr.kind == "INTENT":
+                self.expect("(")
+                self.advance()          # IN / OUT / INOUT
+                self.expect(")")
+            elif attr.kind == "DIMENSION":
+                self.expect("(")
+                default_dims = [self.parse_expr()]
+                while self.accept(","):
+                    default_dims.append(self.parse_expr())
+                self.expect(")")
         self.accept("::")
         names = []
         array_dims = {}
+        initializers = {}
         while True:
             name = self.expect("ID").value
             if self.accept("("):
-                dims = [self.parse_const_int_expr()]
+                # Bound may be a literal (local array) or an expression
+                # referencing another dummy argument (array parameter,
+                # e.g. `INTEGER :: a(n)`); semantic.py enforces that local
+                # (non-parameter) array bounds fold to a constant.
+                dims = [self.parse_expr()]
                 while self.accept(","):
-                    dims.append(self.parse_const_int_expr())
+                    dims.append(self.parse_expr())
                 self.expect(")")
                 array_dims[name] = dims
-            # ignore initializers like `= 0`
+            elif default_dims is not None:
+                array_dims[name] = list(default_dims)
             if self.accept("="):
-                self.parse_expr()
+                initializers[name] = self.parse_expr()
             names.append(name)
             if not self.accept(","):
                 break
         self.expect("NEWLINE")
-        return Decl(typ, names, array_dims)
-
-    def parse_const_int_expr(self):
-        # dimension bounds: only simple integer literals are supported
-        t = self.expect("INT")
-        return t.value
+        return Decl(typ, names, array_dims, is_parameter, initializers)
 
     # --- statements ---
     def parse_stmt_list(self):
@@ -258,9 +271,11 @@ class Parser:
         line = self.cur().line
         name = self.expect("ID").value
         if self.accept("("):
-            idx = self.parse_expr()
+            indices = [self.parse_expr()]
+            while self.accept(","):
+                indices.append(self.parse_expr())
             self.expect(")")
-            target = ArrayRef(name, idx)
+            target = ArrayRef(name, indices)
         else:
             target = Name(name)
         self.expect("=")
@@ -317,9 +332,11 @@ class Parser:
     def parse_lvalue(self):
         name = self.expect("ID").value
         if self.accept("("):
-            idx = self.parse_expr()
+            indices = [self.parse_expr()]
+            while self.accept(","):
+                indices.append(self.parse_expr())
             self.expect(")")
-            return ArrayRef(name, idx)
+            return ArrayRef(name, indices)
         return Name(name)
 
     def parse_if(self):

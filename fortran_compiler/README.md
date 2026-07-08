@@ -41,21 +41,35 @@ Requires `gcc`/`as`/`ld` for the Linux target, and
 
 - `PROGRAM` / `SUBROUTINE` / `FUNCTION` program units (external, one per file
   section; no `MODULE`, no internal/nested procedures)
-- Types: `INTEGER`, `REAL`/`DOUBLE PRECISION` (both 64-bit), `LOGICAL`; 1-D
-  arrays with a literal-integer extent (`INTEGER :: a(10)`)
+- Types: `INTEGER`, `REAL`/`DOUBLE PRECISION` (both 64-bit), `LOGICAL`;
+  N-dimensional arrays, column-major (Fortran order), e.g.
+  `INTEGER :: a(3,4)`
+- **Array arguments**: a whole array can be passed to a `SUBROUTINE`/
+  `FUNCTION` by reference (`CALL sort(a, n)`), and a dummy array's extent
+  may itself be another dummy argument (`INTEGER :: a(n)`) — the standard
+  explicit-shape-array idiom, so array-processing subprograms (sorting,
+  matrix ops, ...) work the way real Fortran code is written
+- `TYPE, PARAMETER :: name = expr` compile-time constants, constant-folded
+  wherever referenced (including as array bounds); plain
+  `TYPE :: name = expr` initializes the variable once at unit entry;
+  `TYPE, DIMENSION(...) ::` as an alternative to `name(...)`; `INTENT(...)`
+  is accepted and ignored
 - Expressions: `+ - * / **`, unary `+/-`, relational (`.EQ./==` etc.),
   logical (`.AND. .OR. .NOT. .EQV. .NEQV.`), with INTEGER/REAL promotion
 - Statements: assignment, `PRINT *`/`WRITE(*,*)`, `READ *`/`READ(*,*)`,
   block `IF/THEN/ELSE IF/ELSE/END IF` (and single-line `IF (...) stmt`),
   `DO var = a,b[,c]` / `DO WHILE (...)`, `EXIT`, `CYCLE`, `CALL`, `RETURN`,
   `STOP`
-- Intrinsics: `SQRT ABS MOD INT REAL DBLE MAX MIN SIN COS TAN EXP LOG`
+- Intrinsics: `SQRT ABS MOD INT REAL DBLE MAX MIN SIN COS TAN EXP LOG
+  FLOOR CEILING NINT SIGN`
 - Arguments are passed by reference, matching Fortran semantics, so
   subroutines can mutate their arguments (`CALL swap(a, b)` works)
 
-Not supported: `MODULE`s, derived types, multi-dimensional arrays,
-allocatable/pointer attributes, formatted `PRINT`/`FORMAT` strings, `GOTO`
-and statement labels, internal procedures, array-valued arguments.
+Not supported: `MODULE`s, derived types, `CHARACTER` variables (string
+*literals* work fine in `PRINT`), allocatable/pointer attributes, formatted
+`PRINT`/`FORMAT` strings, `GOTO` and statement labels, internal procedures,
+the standalone F77-style `PARAMETER (name = value)` statement (use
+`TYPE, PARAMETER ::` instead).
 
 ## How it works
 
@@ -84,13 +98,30 @@ and statement labels, internal procedures, array-valued arguments.
   linked into every compiled program. This keeps the code generator from
   having to reimplement libc's variadic-call ABI (`printf`) itself; it is
   compiled unchanged by native `gcc` (Linux) or `x86_64-w64-mingw32-gcc`
-  (Windows).
+  (Windows). Written against C23 (`-std=c2x`, GCC 13's spelling for it) —
+  `bool`/`true`/`false`/`nullptr`/`constexpr` as language keywords rather
+  than `<stdbool.h>` macros, and `[[nodiscard]]`/`[[noreturn]]` attributes —
+  the direction the next revision (informally C2y/"C29") continues.
+- **Array addressing.** Arrays are column-major, computed at runtime as
+  `base + Σ (index_k - 1) * stride_k` with `stride_1 = 1` — a plain loop
+  over dimensions in `codegen.py: _gen_array_element_addr`, shared by reads,
+  writes, and address-of (for passing to a subprogram). Local arrays need a
+  compile-time-constant size (their storage is a fixed frame slot); array
+  *parameters* don't have local storage at all (just the incoming pointer),
+  so their extents may be ordinary runtime expressions — typically another
+  dummy argument, as in `INTEGER :: a(n)`.
+- **PARAMETER constants** are resolved by a small constant-folding
+  evaluator (`semantic.py: _const_eval`) before anything else in a unit is
+  analyzed, and substituted directly as literal nodes wherever referenced —
+  they never get a stack slot, which is what lets them size a local array.
 
 ## Examples
 
 See `examples/`: `hello.f90`, `factorial.f90`, `fibonacci.f90`,
 `ifelse.f90` (FizzBuzz), `arrays.f90`, `subprograms.f90` (subroutine +
-function, argument mutation).
+function, argument mutation), `bubble_sort.f90` (array argument, in-place
+mutation), `matmul.f90` (2-D arrays), `primes.f90` (sieve of Eratosthenes,
+`PARAMETER`).
 
 ## Tests
 

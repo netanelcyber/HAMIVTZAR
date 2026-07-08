@@ -22,12 +22,18 @@ Design notes
   space, added inside the same helper).
 * Fortran's dummy arguments are pointers; a parameter's stack slot holds the
   *pointer*, so reading/writing it is one indirection more than an ordinary
-  local. Arrays are never passed as arguments in this subset, so array slots
-  always hold data directly.
+  local. Array parameters are the same: the slot holds a pointer to the
+  caller's data, never the data itself, so a whole array is passed by just
+  forwarding that pointer (WholeArrayRef).
+* Arrays are column-major (first index fastest), matching real Fortran.
+  Local arrays require compile-time-constant extents (they need a fixed
+  frame size); array *parameters* may size a dimension from another dummy
+  argument (e.g. `INTEGER :: a(n)`), since only the pointer is stored and
+  the extent is only ever needed to compute a stride at the point of use.
 """
 
 from ast_nodes import (
-    Name, ArrayRef, FuncCall, BinOp, UnaryOp,
+    Name, ArrayRef, WholeArrayRef, FuncCall, BinOp, UnaryOp,
     IntLit, RealLit, BoolLit, StrLit,
     Assign, Print, ReadStmt, If, DoRange, DoWhile, Call, Return, Stop, Exit, Cycle, NoOp,
 )
@@ -105,7 +111,13 @@ class CodeGenerator:
         off = 0
         for name in sorted(symtab):
             sym = symtab[name]
-            size = 8 * (sym.dims[0] if sym.is_array and sym.dims else 1)
+            if sym.is_array and not sym.is_param:
+                count = 1
+                for d in sym.dims:
+                    count *= d.value
+                size = 8 * count
+            else:
+                size = 8   # scalar, or a parameter (array or scalar): one pointer slot
             off += size
             offsets[name] = off
         return offsets, off
@@ -225,14 +237,47 @@ class CodeGenerator:
             else:
                 out.append(f"    lea rax, {self.slot(off)}")
         elif isinstance(node, ArrayRef):
-            sym = self.symtab[node.name.lower()]
-            off = self.offsets[node.name.lower()]
-            self._gen_expr(node.index, out)
-            out.append("    mov rcx, rax")
-            out.append("    dec rcx")
-            out.append(f"    lea rax, [rbp-{off}+rcx*8]")
+            self._gen_array_element_addr(node, out)
         else:
             raise CodegenError("invalid lvalue")
+
+    def _gen_array_element_addr(self, node, out):
+        """Column-major element address (Fortran order: first index fastest)
+        into rax. dims may be runtime expressions (array-parameter extents
+        given by another dummy argument), so strides are computed at runtime
+        rather than folded to constants."""
+        sym = self.symtab[node.name.lower()]
+        off = self.offsets[node.name.lower()]
+        ndims = len(sym.dims)
+
+        acc_off = self.alloc_temp()
+        self._gen_expr(node.indices[0], out)
+        out.append("    dec rax")
+        out.append(f"    mov {self.slot(acc_off)}, rax")
+
+        if ndims > 1:
+            stride_off = self.alloc_temp()
+            out.append(f"    mov qword ptr {self.slot(stride_off)}, 1")
+            for k in range(1, ndims):
+                self._gen_expr(sym.dims[k - 1], out)
+                out.append("    mov rcx, rax")
+                out.append(f"    mov rax, {self.slot(stride_off)}")
+                out.append("    imul rax, rcx")
+                out.append(f"    mov {self.slot(stride_off)}, rax")
+
+                self._gen_expr(node.indices[k], out)
+                out.append("    dec rax")
+                out.append(f"    mov rcx, {self.slot(stride_off)}")
+                out.append("    imul rax, rcx")
+                out.append(f"    add rax, {self.slot(acc_off)}")
+                out.append(f"    mov {self.slot(acc_off)}, rax")
+
+        if sym.is_param:
+            out.append(f"    mov rdx, {self.slot(off)}")
+        else:
+            out.append(f"    lea rdx, {self.slot(off)}")
+        out.append(f"    mov rax, {self.slot(acc_off)}")
+        out.append("    lea rax, [rdx+rax*8]")
 
     def _gen_assign(self, stmt, out):
         target = stmt.target
@@ -420,7 +465,14 @@ class CodeGenerator:
         addr_offsets = []
         for arg in args:
             tmp = self.alloc_temp()
-            if isinstance(arg, (Name, ArrayRef)):
+            if isinstance(arg, WholeArrayRef):
+                sym = self.symtab[arg.name.lower()]
+                off = self.offsets[arg.name.lower()]
+                if sym.is_param:
+                    out.append(f"    mov rax, {self.slot(off)}")
+                else:
+                    out.append(f"    lea rax, {self.slot(off)}")
+            elif isinstance(arg, (Name, ArrayRef)):
                 self._lvalue_addr_to_rax(arg, out)
             else:
                 self._gen_expr(arg, out)
@@ -476,11 +528,7 @@ class CodeGenerator:
                 else:
                     out.append(f"    mov rax, {self.slot(off)}")
         elif isinstance(node, ArrayRef):
-            off = self.offsets[node.name.lower()]
-            self._gen_expr(node.index, out)
-            out.append("    mov rcx, rax")
-            out.append("    dec rcx")
-            out.append(f"    lea rax, [rbp-{off}+rcx*8]")
+            self._gen_array_element_addr(node, out)
             if node.type == "real":
                 out.append("    movsd xmm0, [rax]")
             else:
@@ -621,6 +669,25 @@ class CodeGenerator:
         else:
             self._gen_user_func_call(node, out)
 
+    def _gen_abs_inplace(self, is_real, out):
+        """Absolute value of whatever is currently in xmm0 (real) or rax
+        (integer), replacing it in place. Shared by the ABS and SIGN
+        intrinsics."""
+        if is_real:
+            done = self.new_label("absdone")
+            out.append("    xorpd xmm1, xmm1")
+            out.append("    comisd xmm0, xmm1")
+            out.append(f"    jae {done}")
+            out.append("    xorpd xmm2, xmm2")
+            out.append("    subsd xmm2, xmm0")
+            out.append("    movsd xmm0, xmm2")
+            out.append(f"{done}:")
+        else:
+            out.append("    mov rdx, rax")
+            out.append("    sar rdx, 63")
+            out.append("    xor rax, rdx")
+            out.append("    sub rax, rdx")
+
     def _gen_intrinsic(self, node, out):
         key = node.name.lower()
         args = node.args
@@ -642,20 +709,76 @@ class CodeGenerator:
             return
         if key == "abs":
             self._gen_expr(args[0], out)
-            if node.type == "real":
-                done = self.new_label("absdone")
+            self._gen_abs_inplace(node.type == "real", out)
+            return
+        if key == "floor":
+            self._gen_expr(args[0], out)
+            if args[0].type == "real":
+                out.append("    cvttsd2si rax, xmm0")
+                out.append("    cvtsi2sd xmm1, rax")
+                out.append("    comisd xmm1, xmm0")
+                done = self.new_label("floordone")
+                out.append(f"    jbe {done}")
+                out.append("    dec rax")
+                out.append(f"{done}:")
+            return
+        if key == "ceiling":
+            self._gen_expr(args[0], out)
+            if args[0].type == "real":
+                out.append("    cvttsd2si rax, xmm0")
+                out.append("    cvtsi2sd xmm1, rax")
+                out.append("    comisd xmm1, xmm0")
+                done = self.new_label("ceildone")
+                out.append(f"    jae {done}")
+                out.append("    inc rax")
+                out.append(f"{done}:")
+            return
+        if key == "nint":
+            self._gen_expr(args[0], out)
+            if args[0].type == "real":
+                half = self.add_float_const(0.5)
+                neg = self.new_label("nintneg")
+                rnd = self.new_label("nintround")
                 out.append("    xorpd xmm1, xmm1")
                 out.append("    comisd xmm0, xmm1")
-                out.append(f"    jae {done}")
+                out.append(f"    jb {neg}")
+                out.append(f"    movsd xmm2, {half}[rip]")
+                out.append("    addsd xmm0, xmm2")
+                out.append(f"    jmp {rnd}")
+                out.append(f"{neg}:")
+                out.append(f"    movsd xmm2, {half}[rip]")
+                out.append("    subsd xmm0, xmm2")
+                out.append(f"{rnd}:")
+                out.append("    cvttsd2si rax, xmm0")
+            return
+        if key == "sign":
+            is_real = node.type == "real"
+            self._gen_expr(args[0], out)
+            if is_real and args[0].type != "real":
+                out.append("    cvtsi2sd xmm0, rax")
+            self._gen_abs_inplace(is_real, out)
+            self._push_val("real" if is_real else "integer", out)
+            self._gen_expr(args[1], out)
+            neg = self.new_label("signneg")
+            done = self.new_label("signdone")
+            if args[1].type == "real":
                 out.append("    xorpd xmm2, xmm2")
-                out.append("    subsd xmm2, xmm0")
-                out.append("    movsd xmm0, xmm2")
-                out.append(f"{done}:")
+                out.append("    comisd xmm0, xmm2")
+                out.append(f"    jb {neg}")
             else:
-                out.append("    mov rdx, rax")
-                out.append("    sar rdx, 63")
-                out.append("    xor rax, rdx")
-                out.append("    sub rax, rdx")
+                out.append("    cmp rax, 0")
+                out.append(f"    jl {neg}")
+            self._pop_val("real" if is_real else "integer", "xmm0" if is_real else "rax", out)
+            out.append(f"    jmp {done}")
+            out.append(f"{neg}:")
+            self._pop_val("real" if is_real else "integer", "xmm0" if is_real else "rax", out)
+            if is_real:
+                out.append("    xorpd xmm1, xmm1")
+                out.append("    subsd xmm1, xmm0")
+                out.append("    movsd xmm0, xmm1")
+            else:
+                out.append("    neg rax")
+            out.append(f"{done}:")
             return
         if key == "mod":
             is_real = node.type == "real"

@@ -17,6 +17,10 @@ INTRINSICS = {
     "tan":  {"ret": "real", "nargs": 1},
     "exp":  {"ret": "real", "nargs": 1},
     "log":  {"ret": "real", "nargs": 1},
+    "floor":   {"ret": "integer", "nargs": 1},
+    "ceiling": {"ret": "integer", "nargs": 1},
+    "nint":    {"ret": "integer", "nargs": 1},
+    "sign":    {"ret": "same", "nargs": 2},
 }
 
 

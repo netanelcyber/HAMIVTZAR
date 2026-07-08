@@ -20,8 +20,13 @@ class TypeSpec:
 @dataclass
 class Decl:
     type: TypeSpec
-    names: list                # list of str variable names (dims already folded into TypeSpec per-name via Program.array_dims)
-    array_dims: dict = field(default_factory=dict)   # name -> [int, ...]
+    names: list                # list of str variable names
+    array_dims: dict = field(default_factory=dict)   # name -> [dim_expr, ...]; dim_expr is
+                                                       # an IntLit for local arrays, or any
+                                                       # expression (typically another dummy
+                                                       # parameter's Name) for array parameters
+    is_parameter: bool = False           # PARAMETER attribute: name(s) are compile-time constants
+    initializers: dict = field(default_factory=dict)  # name -> initializer expr ('= expr')
 
 
 @dataclass
@@ -163,7 +168,15 @@ class Name:
 @dataclass
 class ArrayRef:
     name: str
-    index: object
+    indices: list
+    type: object = None
+
+
+@dataclass
+class WholeArrayRef:
+    """A bare array name passed as an actual argument (by reference, whole
+    array, no indexing) -- e.g. `CALL sort(a, n)` where `a` is an array."""
+    name: str
     type: object = None
 
 

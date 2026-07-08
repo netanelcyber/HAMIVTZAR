@@ -28,6 +28,11 @@ EXPECTED = {
                            "buzz", "11", "fizz", "13", "14", "fizzbuzz"]),
     "arrays.f90": "sum of squares 1..10 = 385 \naverage = 38.5 \n",
     "subprograms.f90": "after swap a= 7 b= 3 \nfactorial(5) = 120 \n",
+    "bubble_sort.f90": "".join(f"{n} \n" for n in [1, 2, 3, 5, 8, 9]),
+    "matmul.f90": "".join(s + " \n" for s in
+                          ["1 1 110", "1 2 146", "2 1 200", "2 2 266"]),
+    "primes.f90": "".join(f"{p} \n" for p in [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]) +
+                  "total primes up to 30 = 10 \n",
 }
 
 
