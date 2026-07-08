@@ -139,6 +139,7 @@ class Parser:
         return params
 
     def parse_type_spec(self):
+        char_len = None
         if self.check("DOUBLE"):
             self.advance()
             if self.check("PRECISION"):
@@ -147,17 +148,14 @@ class Parser:
         else:
             base = self.advance().kind.lower()
             if base == "character" and self.check("("):
-                # CHARACTER(LEN=n) -- consume and ignore length spec
-                depth = 0
-                while True:
-                    t = self.advance()
-                    if t.kind == "(":
-                        depth += 1
-                    elif t.kind == ")":
-                        depth -= 1
-                        if depth == 0:
-                            break
-        return TypeSpec(base, [])
+                # CHARACTER(LEN=n) or CHARACTER(n)
+                self.advance()
+                if self.check("ID") and self.cur().value == "len":
+                    self.advance()
+                    self.expect("=")
+                char_len = self.parse_expr()
+                self.expect(")")
+        return TypeSpec(base, [], char_len)
 
     # --- declarations & body ---
     def parse_decls_and_body(self):
@@ -191,12 +189,13 @@ class Parser:
         body = self.parse_stmt_list()
         return decls, body
 
-    ATTR_KEYWORDS = ("PARAMETER", "INTENT", "DIMENSION", "EXTERNAL")
+    ATTR_KEYWORDS = ("PARAMETER", "INTENT", "DIMENSION", "EXTERNAL", "BIND")
 
     def parse_decl(self):
         typ = self.parse_type_spec()
         is_parameter = False
         is_external = False
+        is_bind_c = False
         default_dims = None
         while self.check(",") and self.toks[self.pos + 1].kind in self.ATTR_KEYWORDS:
             self.advance()  # ','
@@ -205,6 +204,16 @@ class Parser:
                 is_parameter = True
             elif attr.kind == "EXTERNAL":
                 is_external = True
+            elif attr.kind == "BIND":
+                # BIND(C) -- 'C' isn't a lexer keyword (too common an
+                # identifier), so it's matched as a plain ID here.
+                self.expect("(")
+                if not (self.check("ID") and self.cur().value == "c"):
+                    t = self.cur()
+                    raise ParseError(f"line {t.line}: expected BIND(C)")
+                self.advance()
+                self.expect(")")
+                is_bind_c = True
             elif attr.kind == "INTENT":
                 self.expect("(")
                 self.advance()          # IN / OUT / INOUT
@@ -239,7 +248,7 @@ class Parser:
             if not self.accept(","):
                 break
         self.expect("NEWLINE")
-        return Decl(typ, names, array_dims, is_parameter, initializers, is_external)
+        return Decl(typ, names, array_dims, is_parameter, initializers, is_external, is_bind_c)
 
     # --- statements ---
     def parse_stmt_list(self):
@@ -487,11 +496,19 @@ class Parser:
         return self.parse_rel()
 
     def parse_rel(self):
-        left = self.parse_add()
+        left = self.parse_concat()
         if self.kind() in REL_OPS:
             op = self.advance().kind
-            right = self.parse_add()
+            right = self.parse_concat()
             return BinOp(op, left, right)
+        return left
+
+    def parse_concat(self):
+        left = self.parse_add()
+        while self.check("//"):
+            self.advance()
+            right = self.parse_add()
+            left = BinOp("//", left, right)
         return left
 
     def parse_add(self):

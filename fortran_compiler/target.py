@@ -8,7 +8,7 @@ are special-cased directly in codegen instead of going through a generic
 argument-classifier.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -18,6 +18,7 @@ class Target:
     shadow_space: int        # bytes of caller-allocated shadow space before a call
     exe_suffix: str          # filename suffix for produced executables
     cc: tuple                # command used to assemble+link (compiler driver)
+    extra_cflags: tuple = ()  # extra flags appended to every assemble/link invocation
 
 
 LINUX_X64 = Target(
@@ -26,6 +27,11 @@ LINUX_X64 = Target(
     shadow_space=0,
     exe_suffix="",
     cc=("gcc",),
+    # Non-PIE: fixed load address, so a static address from the disassembler
+    # or `nm`/`readelf` is directly usable by the ptrace-based debugger with
+    # no ASLR-base bookkeeping (matches how gdb defaults to disabling ASLR
+    # for the same reason, just done at link time instead of at attach time).
+    extra_cflags=("-no-pie",),
 )
 
 WINDOWS_X64 = Target(

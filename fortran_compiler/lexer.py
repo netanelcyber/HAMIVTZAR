@@ -30,7 +30,7 @@ KEYWORDS = {
     "CALL", "IF", "THEN", "ELSE", "ENDIF", "DO", "ENDDO", "WHILE",
     "EXIT", "CYCLE", "STOP", "CONTINUE",
     "PRINT", "WRITE", "READ",
-    "EXTERNAL", "RECURSIVE",
+    "EXTERNAL", "RECURSIVE", "BIND",
 }
 
 # dotted operators, longest first so .EQV. isn't cut short by .EQ.
@@ -42,7 +42,7 @@ DOTTED_OPS = [
 ]
 
 SYMBOLS = [
-    "::", "**", "==", "/=", "<=", ">=",
+    "::", "**", "==", "/=", "//", "<=", ">=",
     "(", ")", ",", "=", "+", "-", "*", "/", "<", ">", ":",
 ]
 

@@ -14,6 +14,10 @@ index.json
 *.index.json
 .env
 
+# fortran_compiler: compiled artifacts
+fortran_compiler/tools/bin/
+*.out
+
 # OS / editor
 .DS_Store
 .idea/

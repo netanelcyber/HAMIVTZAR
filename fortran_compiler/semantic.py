@@ -21,13 +21,26 @@ class SemanticError(Exception):
 
 
 class Symbol:
-    def __init__(self, name, base_type, is_param=False, is_external=False):
+    def __init__(self, name, base_type, is_param=False, is_external=False, is_bind_c=False):
         self.name = name
         self.type = base_type
         self.dims = []          # list of annotated dim-extent expr nodes; [] if scalar
         self.is_array = False
         self.is_param = is_param
         self.is_external = is_external   # dummy-procedure argument (EXTERNAL)
+        self.is_bind_c = is_bind_c       # BIND(C): call the fixed C symbol directly
+        self.is_char = False
+        self.char_len = 1                # CHARACTER(LEN=n) declared length, compile-time int
+
+
+# Built-in pseudo-intrinsics (standard Fortran 2003 names) dispatched as
+# direct BIND(C) calls to runtime.c. GET_COMMAND_ARGUMENT and
+# EXECUTE_COMMAND_LINE need special handling, not just a name rewrite: our
+# CHARACTER buffers are fixed-length and space-padded (no null terminator),
+# so the C side needs the declared length too, auto-injected here from the
+# argument's compile-time-known char_len rather than written by the user.
+BUILTIN_CALL_NAMES = {"get_command_argument", "execute_command_line"}
+BUILTIN_FUNC_NAMES = {"command_argument_count"}
 
 
 class UnitInfo:
@@ -92,7 +105,10 @@ class Analyzer:
             for nm in decl.names:
                 if nm.lower() in symtab or nm.lower() in self.constants:
                     raise SemanticError(f"'{nm}' redeclared in {unit.name}")
-                symtab[nm.lower()] = Symbol(nm, decl.type.base, is_external=decl.is_external)
+                sym = Symbol(nm, decl.type.base, is_external=decl.is_external, is_bind_c=decl.is_bind_c)
+                if decl.type.base == "character":
+                    sym.is_char = True
+                symtab[nm.lower()] = sym
 
         for p in unit.params:
             if p.lower() not in symtab:
@@ -101,7 +117,10 @@ class Analyzer:
 
         # Pass 2: resolve array-bound expressions now that all names (in
         # particular any dummy arguments used as sizes, and any PARAMETER
-        # constants) are in scope.
+        # constants) are in scope. CHARACTER lengths are resolved the same
+        # way and must always fold to a constant (unlike array bounds,
+        # dummy CHARACTER arguments don't get a general assumed-length form
+        # in this subset).
         for decl in unit.decls:
             if decl.is_parameter:
                 continue
@@ -111,6 +130,14 @@ class Analyzer:
                     sym = symtab[nm.lower()]
                     sym.dims = [self._check_expr(d, symtab) for d in raw_dims]
                     sym.is_array = True
+                if decl.type.base == "character":
+                    sym = symtab[nm.lower()]
+                    len_expr = decl.type.char_len if decl.type.char_len is not None else IntLit(1)
+                    resolved = self._check_expr(len_expr, symtab)
+                    if not isinstance(resolved, IntLit):
+                        raise SemanticError(
+                            f"CHARACTER length for '{sym.name}' must be a compile-time constant")
+                    sym.char_len = resolved.value
 
         for sym in symtab.values():
             if sym.is_array and not sym.is_param:
@@ -195,6 +222,10 @@ class Analyzer:
         if isinstance(stmt, Assign):
             stmt.target = self._check_lvalue(stmt.target, symtab)
             stmt.value = self._check_expr(stmt.value, symtab)
+            if stmt.target.type == "character" and not self._is_valid_char_value(stmt.value):
+                raise SemanticError(
+                    "CHARACTER assignment only supports a string literal, another "
+                    "CHARACTER variable, or '//' concatenation of those in this subset")
             return stmt
         if isinstance(stmt, Print):
             stmt.items = [self._check_expr(e, symtab) for e in stmt.items]
@@ -225,7 +256,17 @@ class Analyzer:
             stmt.body = [self._check_stmt(s, symtab, unit) for s in stmt.body]
             return stmt
         if isinstance(stmt, Call):
-            sym = symtab.get(stmt.name.lower())
+            key = stmt.name.lower()
+            if key in BUILTIN_CALL_NAMES:
+                return self._check_builtin_call(stmt, symtab)
+            sym = symtab.get(key)
+            if sym is not None and sym.is_bind_c:
+                # Direct call to a fixed runtime.c symbol (by-reference
+                # args, like an ordinary Fortran call, but no static
+                # signature to check arity against).
+                stmt.args = [self._check_call_arg(a, symtab) for a in stmt.args]
+                stmt.is_bind_c = True
+                return stmt
             if sym is not None and sym.is_external:
                 # Indirect call through a dummy-procedure argument: no
                 # static signature is known (matches real Fortran without
@@ -267,11 +308,53 @@ class Analyzer:
             return node
         raise SemanticError(f"invalid assignment target {type(node).__name__}")
 
+    def _is_valid_char_value(self, node):
+        """A CHARACTER right-hand side supported by this subset: a string
+        literal, a CHARACTER variable, or '//' concatenations of those --
+        not general CHARACTER-valued expressions (function results, etc.)."""
+        if isinstance(node, StrLit):
+            return True
+        if isinstance(node, Name):
+            return node.type == "character"
+        if isinstance(node, BinOp) and node.op == "//":
+            return self._is_valid_char_value(node.left) and self._is_valid_char_value(node.right)
+        return False
+
+    def _char_arg(self, arg, symtab, context):
+        """Resolve a CHARACTER-variable actual argument for a builtin that
+        needs both its address and its compile-time-known length."""
+        if isinstance(arg, Name):
+            sym = symtab.get(arg.name.lower())
+            if sym is not None and sym.is_char:
+                return WholeArrayRef(arg.name, sym.type), sym.char_len
+        raise SemanticError(f"{context} requires a CHARACTER variable")
+
+    def _check_builtin_call(self, stmt, symtab):
+        key = stmt.name.lower()
+        if key == "get_command_argument":
+            if len(stmt.args) != 2:
+                raise SemanticError("GET_COMMAND_ARGUMENT expects (NUMBER, VALUE)")
+            idx = self._check_expr(stmt.args[0], symtab)
+            ref, length = self._char_arg(stmt.args[1], symtab,
+                                          "GET_COMMAND_ARGUMENT's VALUE argument")
+            stmt.args = [idx, ref, IntLit(length)]
+            stmt.name = "rt_get_command_argument"
+        else:   # execute_command_line
+            if len(stmt.args) != 1:
+                raise SemanticError("EXECUTE_COMMAND_LINE expects (COMMAND)")
+            ref, length = self._char_arg(stmt.args[0], symtab,
+                                          "EXECUTE_COMMAND_LINE's COMMAND argument")
+            stmt.args = [ref, IntLit(length)]
+            stmt.name = "rt_execute_command_line"
+        stmt.is_bind_c = True
+        return stmt
+
     def _check_call_arg(self, arg, symtab):
-        """Actual arguments to CALL/user functions may be a whole array
-        (passed by reference, no index) or a procedure name -- a known
-        SUBROUTINE/FUNCTION, or an EXTERNAL dummy of the *current* unit
-        forwarded further -- in addition to ordinary expressions."""
+        """Actual arguments to CALL/user functions may be a whole array or
+        CHARACTER buffer (passed by reference to its base address, no
+        index) or a procedure name -- a known SUBROUTINE/FUNCTION, or an
+        EXTERNAL dummy of the *current* unit forwarded further -- in
+        addition to ordinary expressions."""
         if isinstance(arg, Name):
             key = arg.name.lower()
             sym = symtab.get(key)
@@ -279,7 +362,7 @@ class Analyzer:
                 return ProcRef(arg.name)
             if sym is None and key in self.procedures:
                 return ProcRef(arg.name)
-            if sym is not None and sym.is_array:
+            if sym is not None and (sym.is_array or sym.is_char):
                 return WholeArrayRef(arg.name, sym.type)
         return self._check_expr(arg, symtab)
 
@@ -312,7 +395,25 @@ class Analyzer:
             return node
         if isinstance(node, FuncCall):
             key = node.name.lower()
+            if key == "len" and len(node.args) == 1 and isinstance(node.args[0], Name):
+                lensym = symtab.get(node.args[0].name.lower())
+                if lensym is not None and lensym.is_char:
+                    # A compile-time constant for our fixed-length CHARACTER
+                    # variables -- no runtime string length concept needed.
+                    return IntLit(lensym.char_len)
+            if key in BUILTIN_FUNC_NAMES:
+                if node.args:
+                    raise SemanticError(f"{node.name} takes no arguments")
+                node.name = "rt_command_argument_count"
+                node.type = "integer"
+                node.is_bind_c = True
+                return node
             sym = symtab.get(key)
+            if sym is not None and sym.is_bind_c:
+                node.args = [self._check_call_arg(a, symtab) for a in node.args]
+                node.type = sym.type
+                node.is_bind_c = True
+                return node
             if sym is not None and sym.is_array:
                 if len(node.args) != len(sym.dims):
                     raise SemanticError(
@@ -359,7 +460,11 @@ class Analyzer:
         if isinstance(node, BinOp):
             node.left = self._check_expr(node.left, symtab)
             node.right = self._check_expr(node.right, symtab)
-            if node.op in (".AND.", ".OR.", ".EQV.", ".NEQV."):
+            if node.op == "//":
+                if node.left.type != "character" or node.right.type != "character":
+                    raise SemanticError("'//' requires CHARACTER operands on both sides")
+                node.type = "character"
+            elif node.op in (".AND.", ".OR.", ".EQV.", ".NEQV."):
                 node.type = "logical"
             elif node.op in (".EQ.", ".NE.", ".LT.", ".LE.", ".GT.", ".GE.",
                               "==", "/=", "<", "<=", ">", ">="):

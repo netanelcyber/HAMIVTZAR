@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 class TypeSpec:
     base: str                 # 'integer' | 'real' | 'logical' | 'character'
     dims: list = field(default_factory=list)   # list of int sizes, [] if scalar
+    char_len: object = None   # CHARACTER(LEN=n) length expr; None => default length 1
 
 
 # ---- top level ---------------------------------------------------------------
@@ -28,6 +29,8 @@ class Decl:
     is_parameter: bool = False           # PARAMETER attribute: name(s) are compile-time constants
     initializers: dict = field(default_factory=dict)  # name -> initializer expr ('= expr')
     is_external: bool = False            # EXTERNAL attribute: name(s) are dummy-procedure args
+    is_bind_c: bool = False              # BIND(C): name(s) are runtime.c symbols called by
+                                          # reference-passed args, direct fixed label (no frt_ prefix)
 
 
 @dataclass
@@ -101,6 +104,7 @@ class Call:
     args: list
     line: int = 0
     is_indirect: bool = False   # name is an EXTERNAL dummy-procedure argument, not a fixed label
+    is_bind_c: bool = False     # name is a runtime.c symbol called directly (BIND(C) or a built-in like GET_COMMAND_ARGUMENT)
 
 
 @dataclass
@@ -188,6 +192,7 @@ class FuncCall:
     args: list
     type: object = None
     is_indirect: bool = False   # name is an EXTERNAL dummy-procedure argument, not a fixed label
+    is_bind_c: bool = False     # name is a runtime.c symbol called directly (BIND(C) or a built-in like GET_COMMAND_ARGUMENT)
 
 
 @dataclass

@@ -29,6 +29,11 @@ INTRINSICS = {
     "tanh":    {"ret": "real", "nargs": 1},
     "log10":   {"ret": "real", "nargs": 1},
     "atan2":   {"ret": "real", "nargs": 2},
+    "iand":  {"ret": "integer", "nargs": 2},
+    "ior":   {"ret": "integer", "nargs": 2},
+    "ieor":  {"ret": "integer", "nargs": 2},
+    "not":   {"ret": "integer", "nargs": 1},
+    "ishft": {"ret": "integer", "nargs": 2},
 }
 
 

@@ -112,13 +112,17 @@ class CodeGenerator:
         off = 0
         for name in sorted(symtab):
             sym = symtab[name]
+            if sym.is_bind_c:
+                continue   # compile-time-only: calls a fixed external label directly, no slot
             if sym.is_array and not sym.is_param:
                 count = 1
                 for d in sym.dims:
                     count *= d.value
                 size = 8 * count
+            elif sym.is_char and not sym.is_param:
+                size = sym.char_len   # packed bytes, not 8-byte slots -- C-compatible layout
             else:
-                size = 8   # scalar, or a parameter (array or scalar): one pointer slot
+                size = 8   # scalar, or a parameter (array/char/scalar): one pointer slot
             off += size
             offsets[name] = off
         return offsets, off
@@ -172,6 +176,13 @@ class CodeGenerator:
 
         out = [f".globl {asm_name}", f"{asm_name}:", "    push rbp", "    mov rbp, rsp",
                f"    sub rsp, {frame_size}"]
+
+        if unit.kind == "program":
+            # argc/argv are already sitting in the first two integer
+            # argument registers at process entry (main's own incoming
+            # arguments); nothing above touches them, so they can be
+            # forwarded to the runtime as-is for GET_COMMAND_ARGUMENT.
+            self.emit_call(out, "rt_save_args")
 
         if unit.kind in ("subroutine", "function"):
             regs = self.target.int_arg_regs
@@ -284,8 +295,64 @@ class CodeGenerator:
         out.append(f"    mov rax, {self.slot(acc_off)}")
         out.append("    lea rax, [rdx+rax*8]")
 
+    def _flatten_char_parts(self, node):
+        """Flatten a StrLit / CHARACTER-Name / '//' concatenation tree
+        (the only CHARACTER value shapes semantic.py accepts) into an
+        ordered list of ('lit', bytes) and ('var', name) parts."""
+        if isinstance(node, StrLit):
+            return [("lit", node.value.encode("latin-1", errors="replace"))]
+        if isinstance(node, Name):
+            return [("var", node.name)]
+        if isinstance(node, BinOp) and node.op == "//":
+            return self._flatten_char_parts(node.left) + self._flatten_char_parts(node.right)
+        raise CodegenError(f"unsupported CHARACTER value {type(node).__name__}")
+
+    def _gen_char_assign(self, target, value, out):
+        """CHARACTER assignment. Every part's length is a compile-time
+        constant (literal bytes, or another CHARACTER variable's declared
+        length), so the whole copy -- even when concatenating several
+        variables -- is fully unrolled: no runtime length/loop-counter
+        bookkeeping needed, just a fixed sequence of byte moves truncated
+        or space-padded to the target's declared length."""
+        sym = self.symtab[target.name.lower()]
+        off = self.offsets[target.name.lower()]
+        dest_len = sym.char_len
+
+        if sym.is_param:
+            out.append(f"    mov rdx, {self.slot(off)}")
+        else:
+            out.append(f"    lea rdx, {self.slot(off)}")
+
+        written = 0
+        for kind, payload in self._flatten_char_parts(value):
+            if written >= dest_len:
+                break
+            if kind == "lit":
+                take = payload[:dest_len - written]
+                for k, b in enumerate(take):
+                    out.append(f"    mov byte ptr [rdx+{written + k}], {b}")
+                written += len(take)
+            else:
+                src_sym = self.symtab[payload.lower()]
+                src_off = self.offsets[payload.lower()]
+                if src_sym.is_param:
+                    out.append(f"    mov rbx, {self.slot(src_off)}")
+                else:
+                    out.append(f"    lea rbx, {self.slot(src_off)}")
+                take = min(src_sym.char_len, dest_len - written)
+                for k in range(take):
+                    out.append(f"    mov al, byte ptr [rbx+{k}]")
+                    out.append(f"    mov byte ptr [rdx+{written + k}], al")
+                written += take
+
+        for k in range(written, dest_len):
+            out.append(f"    mov byte ptr [rdx+{k}], 32")
+
     def _gen_assign(self, stmt, out):
         target = stmt.target
+        if target.type == "character":
+            self._gen_char_assign(target, stmt.value, out)
+            return
         if isinstance(target, ArrayRef):
             self._lvalue_addr_to_rax(target, out)
             tmp = self.alloc_temp()
@@ -327,6 +394,16 @@ class CodeGenerator:
                 regs = self.target.int_arg_regs
                 out.append(f"    lea {regs[0]}, {label}[rip]")
                 out.append(f"    mov {regs[1]}, {length}")
+                self.emit_call(out, "rt_print_str")
+            elif item.type == "character":
+                sym = self.symtab[item.name.lower()]
+                off = self.offsets[item.name.lower()]
+                regs = self.target.int_arg_regs
+                if sym.is_param:
+                    out.append(f"    mov {regs[0]}, {self.slot(off)}")
+                else:
+                    out.append(f"    lea {regs[0]}, {self.slot(off)}")
+                out.append(f"    mov {regs[1]}, {sym.char_len}")
                 self.emit_call(out, "rt_print_str")
             else:
                 self._gen_expr(item, out)
@@ -548,14 +625,18 @@ class CodeGenerator:
 
     def _gen_call_stmt(self, stmt, out):
         addr_offsets = self._gen_arg_addresses(stmt.args, out)
-        if stmt.is_indirect:
+        if stmt.is_bind_c:
+            self._emit_user_call(out, addr_offsets, label=stmt.name.lower())
+        elif stmt.is_indirect:
             self._emit_user_call(out, addr_offsets, indirect_name=stmt.name)
         else:
             self._emit_user_call(out, addr_offsets, label=f"frt_{stmt.name.lower()}")
 
     def _gen_user_func_call(self, node, out):
         addr_offsets = self._gen_arg_addresses(node.args, out)
-        if node.is_indirect:
+        if node.is_bind_c:
+            self._emit_user_call(out, addr_offsets, label=node.name.lower())
+        elif node.is_indirect:
             self._emit_user_call(out, addr_offsets, indirect_name=node.name)
         else:
             self._emit_user_call(out, addr_offsets, label=f"frt_{node.name.lower()}")
@@ -902,6 +983,37 @@ class CodeGenerator:
             out.append("    movsd xmm1, xmm0")
             self._pop_val("real", "xmm0", out)
             self.emit_call(out, "atan2")
+            return
+        if key in ("iand", "ior", "ieor"):
+            self._gen_expr(args[0], out)
+            out.append("    push rax")
+            self._gen_expr(args[1], out)
+            out.append("    pop rbx")
+            op = {"iand": "and", "ior": "or", "ieor": "xor"}[key]
+            out.append(f"    {op} rax, rbx")
+            return
+        if key == "not":
+            self._gen_expr(args[0], out)
+            out.append("    not rax")
+            return
+        if key == "ishft":
+            # ISHFT(i, shift): left shift for shift>=0, right (logical) for
+            # shift<0, matching the Fortran intrinsic's sign convention.
+            self._gen_expr(args[0], out)
+            out.append("    push rax")
+            self._gen_expr(args[1], out)
+            out.append("    mov rcx, rax")
+            out.append("    pop rax")
+            pos = self.new_label("ishftpos")
+            done = self.new_label("ishftdone")
+            out.append("    cmp rcx, 0")
+            out.append(f"    jge {pos}")
+            out.append("    neg rcx")
+            out.append("    shr rax, cl")
+            out.append(f"    jmp {done}")
+            out.append(f"{pos}:")
+            out.append("    shl rax, cl")
+            out.append(f"{done}:")
             return
         raise CodegenError(f"unhandled intrinsic {key}")
 
