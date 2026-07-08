@@ -27,6 +27,7 @@ class Decl:
                                                        # parameter's Name) for array parameters
     is_parameter: bool = False           # PARAMETER attribute: name(s) are compile-time constants
     initializers: dict = field(default_factory=dict)  # name -> initializer expr ('= expr')
+    is_external: bool = False            # EXTERNAL attribute: name(s) are dummy-procedure args
 
 
 @dataclass
@@ -99,6 +100,7 @@ class Call:
     name: str
     args: list
     line: int = 0
+    is_indirect: bool = False   # name is an EXTERNAL dummy-procedure argument, not a fixed label
 
 
 @dataclass
@@ -185,6 +187,16 @@ class FuncCall:
     name: str
     args: list
     type: object = None
+    is_indirect: bool = False   # name is an EXTERNAL dummy-procedure argument, not a fixed label
+
+
+@dataclass
+class ProcRef:
+    """A procedure name (SUBROUTINE/FUNCTION, or an EXTERNAL dummy argument
+    forwarded further) passed as an actual argument, e.g. `CALL rk4(deriv, ...)`
+    -- its address is passed by reference, to be called indirectly by the
+    callee."""
+    name: str
 
 
 @dataclass

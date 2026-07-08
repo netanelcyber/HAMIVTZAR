@@ -33,7 +33,7 @@ Design notes
 """
 
 from ast_nodes import (
-    Name, ArrayRef, WholeArrayRef, FuncCall, BinOp, UnaryOp,
+    Name, ArrayRef, WholeArrayRef, ProcRef, FuncCall, BinOp, UnaryOp,
     IntLit, RealLit, BoolLit, StrLit,
     Assign, Print, ReadStmt, If, DoRange, DoWhile, Call, Return, Stop, Exit, Cycle, NoOp,
 )
@@ -56,7 +56,8 @@ REL_SETCC_REAL = {
     ".GE.": "setae", ">=": "setae",
 }
 
-LIBM_1ARG = {"sin", "cos", "tan", "exp", "log"}
+LIBM_1ARG = {"sin", "cos", "tan", "exp", "log",
+             "atan", "asin", "acos", "sinh", "cosh", "tanh", "log10"}
 
 
 class CodegenError(Exception):
@@ -179,8 +180,12 @@ class CodeGenerator:
                 if i < len(regs):
                     out.append(f"    mov {self.slot(off)}, {regs[i]}")
                 else:
+                    # Stack-passed arguments sit above the return address
+                    # and saved rbp (16 bytes) and, on Windows, above the
+                    # 32-byte shadow space the caller reserves before them.
                     stack_idx = i - len(regs)
-                    out.append(f"    mov rax, [rbp+{16 + 8 * stack_idx}]")
+                    stack_off = 16 + self.target.shadow_space + 8 * stack_idx
+                    out.append(f"    mov rax, [rbp+{stack_off}]")
                     out.append(f"    mov {self.slot(off)}, rax")
 
         out.extend(body_lines)
@@ -472,6 +477,16 @@ class CodeGenerator:
                     out.append(f"    mov rax, {self.slot(off)}")
                 else:
                     out.append(f"    lea rax, {self.slot(off)}")
+            elif isinstance(arg, ProcRef):
+                key = arg.name.lower()
+                if key in self.procedures:
+                    out.append(f"    lea rax, frt_{key}[rip]")
+                else:
+                    # forwarding an EXTERNAL dummy of the *current* unit:
+                    # its slot already holds a code address directly (not a
+                    # pointer-to-pointer), so just pass that value through.
+                    off = self.offsets[key]
+                    out.append(f"    mov rax, {self.slot(off)}")
             elif isinstance(arg, (Name, ArrayRef)):
                 self._lvalue_addr_to_rax(arg, out)
             else:
@@ -486,23 +501,64 @@ class CodeGenerator:
             addr_offsets.append(tmp)
         return addr_offsets
 
-    def _gen_call_stmt(self, stmt, out):
-        proc = self.procedures[stmt.name.lower()]
-        addr_offsets = self._gen_arg_addresses(stmt.args, out)
+    def _emit_user_call(self, out, addr_offsets, label=None, indirect_name=None):
+        """Call a Fortran subprogram (direct, by label, or indirect through
+        an EXTERNAL dummy argument's stored code address) with the given
+        argument addresses.
+
+        Arguments beyond the target's register count must land on the
+        stack at exactly the offset the callee's prologue reads them from
+        (rbp+16, rbp+24, ...) -- fixed by the ABI relative to the `call`
+        instruction itself, so unlike the runtime-helper/libm calls (never
+        more than 2 args) this can't reuse the simple register-only
+        `emit_call`. Windows additionally expects any stack arguments to
+        start *after* the 32-byte shadow space, not at rsp+0.
+        """
         regs = self.target.int_arg_regs
-        for i, off in enumerate(addr_offsets):
-            if i < len(regs):
-                out.append(f"    mov {regs[i]}, {self.slot(off)}")
-        self.emit_call(out, f"frt_{stmt.name.lower()}")
+        n_reg = len(regs)
+        n_stack = max(0, len(addr_offsets) - n_reg)
+        shadow = self.target.shadow_space
+        stack_args_padded = ((n_stack * 8 + 15) // 16) * 16
+        total_reserve = shadow + stack_args_padded + 16   # +16: alignment fixup + padding
+        fixup_off = total_reserve - 8
+
+        out.append("    mov r10, rsp")
+        out.append("    and r10, 15")
+        out.append("    sub rsp, r10")
+        out.append(f"    sub rsp, {total_reserve}")
+        out.append(f"    mov [rsp+{fixup_off}], r10")
+
+        for i in range(min(n_reg, len(addr_offsets))):
+            out.append(f"    mov rax, {self.slot(addr_offsets[i])}")
+            out.append(f"    mov {regs[i]}, rax")
+        for k in range(n_stack):
+            out.append(f"    mov rax, {self.slot(addr_offsets[n_reg + k])}")
+            out.append(f"    mov [rsp+{shadow + k * 8}], rax")
+
+        if indirect_name is not None:
+            off = self.offsets[indirect_name.lower()]
+            out.append(f"    mov r11, {self.slot(off)}")
+            out.append("    call r11")
+        else:
+            out.append(f"    call {label}")
+
+        out.append(f"    mov r10, [rsp+{fixup_off}]")
+        out.append(f"    add rsp, {total_reserve}")
+        out.append("    add rsp, r10")
+
+    def _gen_call_stmt(self, stmt, out):
+        addr_offsets = self._gen_arg_addresses(stmt.args, out)
+        if stmt.is_indirect:
+            self._emit_user_call(out, addr_offsets, indirect_name=stmt.name)
+        else:
+            self._emit_user_call(out, addr_offsets, label=f"frt_{stmt.name.lower()}")
 
     def _gen_user_func_call(self, node, out):
-        proc = self.procedures[node.name.lower()]
         addr_offsets = self._gen_arg_addresses(node.args, out)
-        regs = self.target.int_arg_regs
-        for i, off in enumerate(addr_offsets):
-            if i < len(regs):
-                out.append(f"    mov {regs[i]}, {self.slot(off)}")
-        self.emit_call(out, f"frt_{node.name.lower()}")
+        if node.is_indirect:
+            self._emit_user_call(out, addr_offsets, indirect_name=node.name)
+        else:
+            self._emit_user_call(out, addr_offsets, label=f"frt_{node.name.lower()}")
 
     # ---- expressions ----
     def _gen_expr(self, node, out):
@@ -830,6 +886,22 @@ class CodeGenerator:
             if args[0].type != "real":
                 out.append("    cvtsi2sd xmm0, rax")
             self.emit_call(out, key)
+            return
+        if key == "atan2":
+            # C's atan2(y, x) takes its arguments in that order; our stack
+            # machine naturally leaves left in xmm1 and right in xmm0 after
+            # evaluating both (see the arithmetic BinOp case), so swap them
+            # into (y, x) = (xmm0, xmm1) before the call.
+            self._gen_expr(args[0], out)
+            if args[0].type != "real":
+                out.append("    cvtsi2sd xmm0, rax")
+            self._push_val("real", out)
+            self._gen_expr(args[1], out)
+            if args[1].type != "real":
+                out.append("    cvtsi2sd xmm0, rax")
+            out.append("    movsd xmm1, xmm0")
+            self._pop_val("real", "xmm0", out)
+            self.emit_call(out, "atan2")
             return
         raise CodegenError(f"unhandled intrinsic {key}")
 

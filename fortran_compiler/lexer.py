@@ -30,6 +30,7 @@ KEYWORDS = {
     "CALL", "IF", "THEN", "ELSE", "ENDIF", "DO", "ENDDO", "WHILE",
     "EXIT", "CYCLE", "STOP", "CONTINUE",
     "PRINT", "WRITE", "READ",
+    "EXTERNAL", "RECURSIVE",
 }
 
 # dotted operators, longest first so .EQV. isn't cut short by .EQ.

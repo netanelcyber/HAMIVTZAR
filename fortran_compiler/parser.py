@@ -68,8 +68,18 @@ class Parser:
 
     def parse_unit(self):
         result_type = None
-        if self.kind() in TYPE_KEYWORDS:
-            result_type = self.parse_type_spec()
+        # RECURSIVE and a type prefix (for FUNCTION) may appear in either
+        # order, e.g. `RECURSIVE REAL FUNCTION f(...)` or
+        # `REAL RECURSIVE FUNCTION f(...)`. RECURSIVE needs no codegen
+        # accommodation -- every call already gets a fresh stack frame --
+        # so it's accepted and otherwise ignored.
+        while True:
+            if self.check("RECURSIVE"):
+                self.advance()
+            elif self.kind() in TYPE_KEYWORDS and result_type is None:
+                result_type = self.parse_type_spec()
+            else:
+                break
         if self.check("PROGRAM"):
             self.advance()
             name = self.expect("ID").value
@@ -152,7 +162,8 @@ class Parser:
     # --- declarations & body ---
     def parse_decls_and_body(self):
         decls = []
-        while self.kind() in TYPE_KEYWORDS or self.check("IMPLICIT") or self.check("PARAMETER"):
+        while (self.kind() in TYPE_KEYWORDS or self.check("IMPLICIT")
+               or self.check("PARAMETER") or self.check("EXTERNAL")):
             if self.check("IMPLICIT"):
                 self.advance()
                 if self.check("NONE"):
@@ -165,21 +176,35 @@ class Parser:
                     f"line {t.line}: standalone PARAMETER (name = value, ...) statements are "
                     f"not supported; declare the constant with its type instead, e.g. "
                     f"'INTEGER, PARAMETER :: name = value'")
+            if self.check("EXTERNAL"):
+                # bare `EXTERNAL name[, name...]` -- a dummy-procedure
+                # argument used only via CALL (no return value), as opposed
+                # to `TYPE, EXTERNAL :: name` for a dummy function.
+                self.advance()
+                names = [self.expect("ID").value]
+                while self.accept(","):
+                    names.append(self.expect("ID").value)
+                self.expect("NEWLINE")
+                decls.append(Decl(TypeSpec("external", []), names, is_external=True))
+                continue
             decls.append(self.parse_decl())
         body = self.parse_stmt_list()
         return decls, body
 
-    ATTR_KEYWORDS = ("PARAMETER", "INTENT", "DIMENSION")
+    ATTR_KEYWORDS = ("PARAMETER", "INTENT", "DIMENSION", "EXTERNAL")
 
     def parse_decl(self):
         typ = self.parse_type_spec()
         is_parameter = False
+        is_external = False
         default_dims = None
         while self.check(",") and self.toks[self.pos + 1].kind in self.ATTR_KEYWORDS:
             self.advance()  # ','
             attr = self.advance()
             if attr.kind == "PARAMETER":
                 is_parameter = True
+            elif attr.kind == "EXTERNAL":
+                is_external = True
             elif attr.kind == "INTENT":
                 self.expect("(")
                 self.advance()          # IN / OUT / INOUT
@@ -214,7 +239,7 @@ class Parser:
             if not self.accept(","):
                 break
         self.expect("NEWLINE")
-        return Decl(typ, names, array_dims, is_parameter, initializers)
+        return Decl(typ, names, array_dims, is_parameter, initializers, is_external)
 
     # --- statements ---
     def parse_stmt_list(self):

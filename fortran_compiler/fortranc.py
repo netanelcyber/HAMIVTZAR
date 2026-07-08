@@ -53,7 +53,7 @@ def build(input_path, output_path, target, keep_asm=False, emit_asm_only=False):
         return asm_path
 
     exe_path = output_path + target.exe_suffix
-    cmd = list(target.cc) + ["-std=c2x", asm_path, RUNTIME_C, "-o", exe_path]
+    cmd = list(target.cc) + ["-std=c2x", asm_path, RUNTIME_C, "-o", exe_path, "-lm"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if not keep_asm:
         os.remove(asm_path)

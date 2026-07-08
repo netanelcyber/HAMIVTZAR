@@ -21,6 +21,14 @@ INTRINSICS = {
     "ceiling": {"ret": "integer", "nargs": 1},
     "nint":    {"ret": "integer", "nargs": 1},
     "sign":    {"ret": "same", "nargs": 2},
+    "atan":    {"ret": "real", "nargs": 1},
+    "asin":    {"ret": "real", "nargs": 1},
+    "acos":    {"ret": "real", "nargs": 1},
+    "sinh":    {"ret": "real", "nargs": 1},
+    "cosh":    {"ret": "real", "nargs": 1},
+    "tanh":    {"ret": "real", "nargs": 1},
+    "log10":   {"ret": "real", "nargs": 1},
+    "atan2":   {"ret": "real", "nargs": 2},
 }
 
 

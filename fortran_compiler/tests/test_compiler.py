@@ -33,6 +33,11 @@ EXPECTED = {
                           ["1 1 110", "1 2 146", "2 1 200", "2 2 266"]),
     "primes.f90": "".join(f"{p} \n" for p in [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]) +
                   "total primes up to 30 = 10 \n",
+    "rk4_ode.f90": "RK4 solution y(1) = 0.367879 \nexact exp(-1)     = 0.367879 \n",
+    "recursive_factorial.f90": "".join(
+        f"{i} {n} \n" for i, n in enumerate(
+            [1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800])),
+    "many_args.f90": "total = 36 \n",
 }
 
 

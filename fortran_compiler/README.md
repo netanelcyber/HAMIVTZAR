@@ -60,16 +60,32 @@ Requires `gcc`/`as`/`ld` for the Linux target, and
   block `IF/THEN/ELSE IF/ELSE/END IF` (and single-line `IF (...) stmt`),
   `DO var = a,b[,c]` / `DO WHILE (...)`, `EXIT`, `CYCLE`, `CALL`, `RETURN`,
   `STOP`
-- Intrinsics: `SQRT ABS MOD INT REAL DBLE MAX MIN SIN COS TAN EXP LOG
-  FLOOR CEILING NINT SIGN`
+- Intrinsics: `SQRT ABS MOD INT REAL DBLE MAX MIN SIN COS TAN ASIN ACOS ATAN
+  ATAN2 SINH COSH TANH EXP LOG LOG10 FLOOR CEILING NINT SIGN`
 - Arguments are passed by reference, matching Fortran semantics, so
-  subroutines can mutate their arguments (`CALL swap(a, b)` works)
+  subroutines can mutate their arguments (`CALL swap(a, b)` works); more
+  arguments than fit in registers (4 on Windows, 6 on Linux) spill correctly
+  to the stack
+- `RECURSIVE FUNCTION`/`SUBROUTINE` (accepted; recursion needs no special
+  support since every call already gets its own stack frame — see
+  `recursive_factorial.f90`)
+- **Procedure arguments**: a `SUBROUTINE`/`FUNCTION` name can be passed as
+  an actual argument (`CALL rk4(deriv, ...)`) and called indirectly through
+  a dummy `EXTERNAL` argument (`REAL, EXTERNAL :: f` for a dummy function,
+  bare `EXTERNAL sub` for a dummy subroutine) — enough to write a generic
+  numerical solver once and hand it different equations (`rk4_ode.f90`)
 
 Not supported: `MODULE`s, derived types, `CHARACTER` variables (string
 *literals* work fine in `PRINT`), allocatable/pointer attributes, formatted
 `PRINT`/`FORMAT` strings, `GOTO` and statement labels, internal procedures,
 the standalone F77-style `PARAMETER (name = value)` statement (use
-`TYPE, PARAMETER ::` instead).
+`TYPE, PARAMETER ::` instead), explicit interfaces (so no static arity
+check on indirect/`EXTERNAL` calls — matches real Fortran without one).
+
+> **Gotcha inherited from real Fortran:** declaring an ordinary variable
+> with the same name as a procedure you intend to pass as an argument
+> shadows the procedure reference in that scope. Don't (re)declare a
+> function's name as a variable in the caller — it isn't needed there.
 
 ## How it works
 
@@ -114,6 +130,23 @@ the standalone F77-style `PARAMETER (name = value)` statement (use
   evaluator (`semantic.py: _const_eval`) before anything else in a unit is
   analyzed, and substituted directly as literal nodes wherever referenced —
   they never get a stack slot, which is what lets them size a local array.
+- **Procedure arguments.** A dummy `EXTERNAL` argument's stack slot holds
+  the callee's *code address* directly (unlike an ordinary by-reference
+  argument slot, which holds the address of a value one level further
+  away), so calling through it is `mov reg, [slot]; call reg` — one
+  indirection, not two. Passing a procedure as an actual argument is the
+  mirror image: `lea rax, frt_name[rip]` for a known top-level
+  `SUBROUTINE`/`FUNCTION`, or a plain forwarding load if the argument being
+  passed is itself an `EXTERNAL` dummy of the *current* unit.
+- **Stack-spilled arguments.** Arguments beyond the register count (4 on
+  Windows, 6 on Linux) must land exactly where the callee's prologue reads
+  them: `rbp+16`, `rbp+24`, ... on Linux, but `rbp+16+32`, `rbp+16+40`, ...
+  on Windows, offset by the 32-byte shadow space the caller reserves right
+  after the return address and saved `rbp`. The caller
+  (`codegen.py: _emit_user_call`) writes them into one combined,
+  16-byte-aligned stack reservation alongside the alignment fixup, rather
+  than reusing the register-only path the small fixed-arity runtime/libm
+  calls take.
 
 ## Examples
 
@@ -121,7 +154,10 @@ See `examples/`: `hello.f90`, `factorial.f90`, `fibonacci.f90`,
 `ifelse.f90` (FizzBuzz), `arrays.f90`, `subprograms.f90` (subroutine +
 function, argument mutation), `bubble_sort.f90` (array argument, in-place
 mutation), `matmul.f90` (2-D arrays), `primes.f90` (sieve of Eratosthenes,
-`PARAMETER`).
+`PARAMETER`), `rk4_ode.f90` (generic Runge-Kutta ODE solver taking the
+derivative as a procedure argument), `recursive_factorial.f90`,
+`many_args.f90` (9-argument call, exercises stack-spilled arguments on
+both targets).
 
 ## Tests
 

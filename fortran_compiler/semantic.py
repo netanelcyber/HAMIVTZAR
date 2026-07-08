@@ -7,7 +7,7 @@ reference to an undeclared/unknown name is an error.
 """
 
 from ast_nodes import (
-    Name, ArrayRef, WholeArrayRef, FuncCall, BinOp, UnaryOp,
+    Name, ArrayRef, WholeArrayRef, ProcRef, FuncCall, BinOp, UnaryOp,
     IntLit, RealLit, BoolLit, StrLit,
     Assign, Print, ReadStmt, If, DoRange, DoWhile, Call, Return, Stop, Exit, Cycle, NoOp,
 )
@@ -21,12 +21,13 @@ class SemanticError(Exception):
 
 
 class Symbol:
-    def __init__(self, name, base_type, is_param=False):
+    def __init__(self, name, base_type, is_param=False, is_external=False):
         self.name = name
         self.type = base_type
         self.dims = []          # list of annotated dim-extent expr nodes; [] if scalar
         self.is_array = False
         self.is_param = is_param
+        self.is_external = is_external   # dummy-procedure argument (EXTERNAL)
 
 
 class UnitInfo:
@@ -91,7 +92,7 @@ class Analyzer:
             for nm in decl.names:
                 if nm.lower() in symtab or nm.lower() in self.constants:
                     raise SemanticError(f"'{nm}' redeclared in {unit.name}")
-                symtab[nm.lower()] = Symbol(nm, decl.type.base)
+                symtab[nm.lower()] = Symbol(nm, decl.type.base, is_external=decl.is_external)
 
         for p in unit.params:
             if p.lower() not in symtab:
@@ -224,6 +225,14 @@ class Analyzer:
             stmt.body = [self._check_stmt(s, symtab, unit) for s in stmt.body]
             return stmt
         if isinstance(stmt, Call):
+            sym = symtab.get(stmt.name.lower())
+            if sym is not None and sym.is_external:
+                # Indirect call through a dummy-procedure argument: no
+                # static signature is known (matches real Fortran without
+                # an explicit INTERFACE block), so arity isn't checked.
+                stmt.args = [self._check_call_arg(a, symtab) for a in stmt.args]
+                stmt.is_indirect = True
+                return stmt
             proc = self.procedures.get(stmt.name.lower())
             if proc is None or proc.kind != "subroutine":
                 raise SemanticError(f"line {stmt.line}: '{stmt.name}' is not a known SUBROUTINE")
@@ -260,9 +269,16 @@ class Analyzer:
 
     def _check_call_arg(self, arg, symtab):
         """Actual arguments to CALL/user functions may be a whole array
-        (passed by reference, no index) in addition to ordinary expressions."""
+        (passed by reference, no index) or a procedure name -- a known
+        SUBROUTINE/FUNCTION, or an EXTERNAL dummy of the *current* unit
+        forwarded further -- in addition to ordinary expressions."""
         if isinstance(arg, Name):
-            sym = symtab.get(arg.name.lower())
+            key = arg.name.lower()
+            sym = symtab.get(key)
+            if sym is not None and sym.is_external:
+                return ProcRef(arg.name)
+            if sym is None and key in self.procedures:
+                return ProcRef(arg.name)
             if sym is not None and sym.is_array:
                 return WholeArrayRef(arg.name, sym.type)
         return self._check_expr(arg, symtab)
@@ -305,6 +321,14 @@ class Analyzer:
                 ref = ArrayRef(node.name, [self._check_expr(a, symtab) for a in node.args])
                 ref.type = sym.type
                 return ref
+            if sym is not None and sym.is_external:
+                # Indirect call through a dummy-procedure argument used as a
+                # function (typed EXTERNAL, e.g. `REAL, EXTERNAL :: f`); no
+                # static arity check for the same reason as the Call case.
+                node.args = [self._check_call_arg(a, symtab) for a in node.args]
+                node.type = sym.type
+                node.is_indirect = True
+                return node
             if is_intrinsic(key):
                 node.args = [self._check_expr(a, symtab) for a in node.args]
                 if not check_arity(key, len(node.args)):
