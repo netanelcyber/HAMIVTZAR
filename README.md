@@ -235,14 +235,25 @@ bug, since fixed — see `security_classifier/features.py`'s handling of
 `eval`/`exec`/`compile`). Real accuracy requires real, representative samples
 for both classes.
 
-**Static analysis alone has real limits.** Scanning
-[sqlmap](https://github.com/sqlmapproject/sqlmap) (a legitimate, widely-used
-pentest tool — not malware) flagged 80/589 files, and the top hits were mostly
-false positives: a self-update mechanism using `subprocess(shell=True)`, a
-Windows-compat shim using `ctypes`+`socket`, a git-revision lookup, and a
-deliberately-vulnerable test fixture bundled for sqlmap's own test suite.
-Structural patterns alone can't distinguish "does this dangerous-looking
-thing" from "actually attacks something."
+**Static analysis alone has real limits, and real benign data matters a lot.**
+Scanning [sqlmap](https://github.com/sqlmapproject/sqlmap) (a legitimate,
+widely-used pentest tool — not malware, 589 files) with a model trained on
+only the 6 synthetic placeholder benign vectors flagged **80 files (13.6%)**
+as malicious — almost entirely false positives: a self-update mechanism using
+`subprocess(shell=True)`, a Windows-compat shim using `ctypes`+`socket`, a
+git-revision lookup, and a deliberately-vulnerable test fixture bundled for
+sqlmap's own test suite. Retraining on real benign data (`python
+scripts/fetch_benign_corpus.py` → 667 real FalconPy files) instead of the
+synthetic placeholder dropped that to **0 false positives on the same 591
+files** (score distribution: mean 0.06, max 0.30 — well under the 0.5
+threshold), while still correctly flagging a known-suspicious synthetic sample
+(0.59) and not just learning a file-size shortcut (verified against
+FalconPy's largest real file, scored 0.00). The benign side went from 6
+hand-written vectors to 667 real files; **the malicious side is still only 6
+synthetic placeholder vectors** — so this result says real data fixes false
+positives dramatically, and says nothing yet about true-positive recall on
+real malicious code, which still requires real malicious-class samples nobody
+has supplied.
 
 ### Dynamic (behavioral) analysis — optional, and never executed by this project
 

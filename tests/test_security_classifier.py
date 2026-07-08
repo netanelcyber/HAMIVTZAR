@@ -296,5 +296,40 @@ class DynamicFeaturesTests(unittest.TestCase):
         self.assertIn("No sandboxed dynamic trace", summary)
 
 
+class RealBenignCorpusTests(unittest.TestCase):
+    """Validates against the real FalconPy clone if you've run
+    scripts/fetch_benign_corpus.py; skips cleanly if you haven't (e.g. fresh
+    checkout, CI without network) since data/security/ is gitignored and never
+    fetched automatically."""
+
+    FALCONPY_DIR = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "security", "benign", "falconpy",
+    )
+
+    def test_real_benign_corpus_scores_low(self):
+        try:
+            import sklearn  # noqa: F401
+        except ImportError:
+            self.skipTest("scikit-learn not installed")
+        if not os.path.isdir(self.FALCONPY_DIR):
+            self.skipTest("data/security/benign/falconpy not fetched -- run scripts/fetch_benign_corpus.py")
+
+        from sklearn.ensemble import RandomForestClassifier
+
+        from security_classifier.dataset import BENIGN, build_dataset
+
+        xs, ys = build_dataset(benign_dir=self.FALCONPY_DIR)
+        clf = RandomForestClassifier(n_estimators=200, random_state=0, class_weight="balanced")
+        clf.fit(xs, ys)
+
+        # Real FalconPy files, scored by a model that trained on (some of)
+        # them -- this is a sanity floor, not held-out generalization: mean
+        # score across the whole real corpus should be low.
+        proba = clf.predict_proba(xs)
+        benign_scores = [p[1] for p, y in zip(proba, ys) if y == BENIGN]
+        self.assertLess(sum(benign_scores) / len(benign_scores), 0.15)
+
+
 if __name__ == "__main__":
     unittest.main()
