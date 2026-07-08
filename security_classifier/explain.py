@@ -8,7 +8,9 @@ Offline-first, exactly like ``linux_docs_llm.backends``: ``auto`` tries a
 local LLM (Ollama, then llama.cpp) and always falls back to a deterministic,
 dependency-free template — so this produces a natural-language summary even
 fully disconnected. Claude is opt-in only (``--backend claude``) and is never
-selected by ``auto``.
+selected by ``auto``. Backend selection reuses
+``linux_docs_llm.backends.resolve_backend`` rather than re-implementing the
+Ollama -> llama.cpp -> Claude ordering here — see :func:`resolve_explain_backend`.
 
 The model is never shown the raw source code — only the numeric/boolean
 feature values already extracted by :mod:`security_classifier.features`. It
@@ -22,12 +24,7 @@ import os
 import sys
 from typing import Callable, Optional
 
-from linux_docs_llm.backends import (
-    DEFAULT_CLAUDE_MODEL,
-    ClaudeAnswerer,
-    LlamaCppAnswerer,
-    OllamaAnswerer,
-)
+from linux_docs_llm.backends import ModelBackedAnswerer, resolve_backend
 
 from .dynamic_features import DynamicFeatures
 from .features import Features
@@ -55,6 +52,34 @@ specific evidence that drove that call.
 do not overstate confidence.
 - Keep it to 3-5 sentences. No headers, no bullet lists.\
 """
+
+
+def resolve_explain_backend(name: str = "auto", **opts) -> Optional[ModelBackedAnswerer]:
+    """Resolve the backend to use for ``--explain``, once per run (not per file).
+
+    Reuses ``linux_docs_llm.backends.resolve_backend`` / ``make_backend``
+    instead of re-implementing the Ollama -> llama.cpp -> Claude selection.
+    Callers should resolve this ONCE and reuse the same engine across every
+    file in a scan -- probing a local daemon, or loading a GGUF model, once
+    per run rather than once per file.
+
+    Returns ``None`` (meaning: use the deterministic, dependency-free offline
+    template) for ``name == "template"``, or when nothing else is available.
+    An explicitly-named backend (``ollama``/``llama-cpp``/``claude``) that
+    turns out to be unavailable prints a warning before falling back --
+    ``auto`` stays silent about intermediate misses, since trying each
+    candidate and moving on is its whole point.
+    """
+    if name == "template":
+        return None
+
+    backend = resolve_backend(name, **opts)
+    if isinstance(backend, ModelBackedAnswerer) and backend.available():
+        return backend
+
+    if name != "auto":
+        print(f"[explain] {name} backend unavailable, using offline template", file=sys.stderr)
+    return None
 
 
 def _build_user_message(
@@ -147,9 +172,8 @@ def summarize(
     features: Features,
     score: float,
     dynamic: Optional[DynamicFeatures] = None,
-    backend: str = "auto",
+    engine: Optional[ModelBackedAnswerer] = None,
     on_text: OnText = None,
-    **backend_opts,
 ) -> str:
     """Return a natural-language summary of one classifier finding.
 
@@ -158,30 +182,11 @@ def summarize(
     ``scripts/sandboxed_trace.sh``) -- collected on the caller's own isolated
     infrastructure, never executed by this function.
 
-    ``backend`` follows the same names as ``linux_docs_llm``: ``auto`` (local
-    LLM if available, else the offline template), ``ollama``, ``llama-cpp``,
-    ``claude`` (online, opt-in), or ``template`` (force the offline fallback).
+    ``engine``, if given, is a backend resolved once via
+    :func:`resolve_explain_backend` and reused across every file being
+    scanned. ``None`` forces the offline, dependency-free template.
     """
     user_message = _build_user_message(path, features, score, dynamic)
-
-    engine = None
-    if backend in ("auto", "ollama"):
-        candidate = OllamaAnswerer(
-            model=backend_opts.get("ollama_model", "llama3.2"),
-            url=backend_opts.get("ollama_url"),
-        )
-        if candidate.available():
-            engine = candidate
-    if engine is None and backend in ("auto", "llama-cpp"):
-        candidate = LlamaCppAnswerer(model_path=backend_opts.get("model_path"))
-        if candidate.available():
-            engine = candidate
-    if engine is None and backend == "claude":
-        candidate = ClaudeAnswerer(model=backend_opts.get("model") or DEFAULT_CLAUDE_MODEL)
-        if candidate.available():
-            engine = candidate
-        else:
-            print("[explain] claude backend unavailable, using offline template", file=sys.stderr)
 
     if engine is not None:
         return engine.generate(EXPLAIN_SYSTEM_PROMPT, user_message, on_text)

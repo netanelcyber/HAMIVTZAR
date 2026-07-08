@@ -174,15 +174,16 @@ class AnalyticsTests(unittest.TestCase):
 
 
 class ExplainTests(unittest.TestCase):
-    """The natural-language summary layer. Forcing backend='template' keeps
-    these fully offline and deterministic -- no LLM, no network required."""
+    """The natural-language summary layer. Passing engine=None (what
+    resolve_explain_backend('template') always returns) keeps these fully
+    offline and deterministic -- no LLM, no network required."""
 
     def test_template_backend_summarizes_benign_finding(self):
         from security_classifier.explain import summarize
         from security_classifier.features import extract_features
 
         f = extract_features(BENIGN_SNIPPET)
-        summary = summarize("greet.py", f, score=0.1, backend="template")
+        summary = summarize("greet.py", f, score=0.1, engine=None)
         self.assertIn("benign", summary)
         self.assertIn("greet.py", summary)
 
@@ -191,7 +192,7 @@ class ExplainTests(unittest.TestCase):
         from security_classifier.features import extract_features
 
         f = extract_features(SUSPICIOUS_SNIPPET)
-        summary = summarize("loader.py", f, score=0.9, backend="template")
+        summary = summarize("loader.py", f, score=0.9, engine=None)
         self.assertIn("malicious", summary)
         # cites at least one concrete triggered indicator, not just the verdict
         self.assertTrue(
@@ -199,25 +200,43 @@ class ExplainTests(unittest.TestCase):
         )
 
     def test_template_never_calls_a_model(self):
-        # backend='template' must never try Ollama/llama.cpp/Claude, so this
-        # must succeed even with no network and no local daemon.
+        # engine=None must never try Ollama/llama.cpp/Claude, so this must
+        # succeed even with no network and no local daemon.
         from security_classifier.explain import summarize
         from security_classifier.features import extract_features
 
         f = extract_features(BENIGN_SNIPPET)
-        summary = summarize("x.py", f, score=0.2, backend="template", on_text=None)
+        summary = summarize("x.py", f, score=0.2, engine=None, on_text=None)
         self.assertIsInstance(summary, str)
         self.assertGreater(len(summary), 0)
 
-    def test_auto_falls_back_to_template_when_no_local_llm(self):
-        from security_classifier.explain import summarize
+    def test_resolve_explain_backend_template_forces_none(self):
+        from security_classifier.explain import resolve_explain_backend
+
+        self.assertIsNone(resolve_explain_backend("template"))
+
+    def test_resolve_explain_backend_auto_falls_back_to_none_when_no_local_llm(self):
+        from security_classifier.explain import resolve_explain_backend, summarize
         from security_classifier.features import extract_features
 
-        f = extract_features(BENIGN_SNIPPET)
         # No Ollama daemon / GGUF model configured in the test environment,
-        # so auto must land on the same offline template path.
-        summary = summarize("x.py", f, score=0.1, backend="auto")
+        # so auto must resolve to None -- reused across the whole run by a
+        # real caller, not re-probed per file.
+        engine = resolve_explain_backend("auto")
+        self.assertIsNone(engine)
+
+        f = extract_features(BENIGN_SNIPPET)
+        summary = summarize("x.py", f, score=0.1, engine=engine)
         self.assertIn("benign", summary)
+
+    def test_resolve_explain_backend_never_returns_claude_for_auto(self):
+        # auto must behave like linux_docs_llm's auto: never silently select
+        # the online Claude backend, even if an API key happens to be set.
+        from security_classifier.explain import resolve_explain_backend
+        from linux_docs_llm.backends import ClaudeAnswerer
+
+        engine = resolve_explain_backend("auto")
+        self.assertNotIsInstance(engine, ClaudeAnswerer)
 
 
 class DynamicFeaturesTests(unittest.TestCase):
@@ -272,6 +291,35 @@ class DynamicFeaturesTests(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_wrong_typed_detail_fields_do_not_crash(self):
+        # A trace file is external/untrusted input -- a well-formed-JSON but
+        # wrong-typed detail field (e.g. "path" as a list instead of a
+        # string) must be skipped, not raise AttributeError/TypeError. The
+        # event's own count still increments; only the detail-dependent
+        # check (persistence-path matching, host set membership) is skipped.
+        from security_classifier.dynamic_features import extract_dynamic_features
+
+        events = [
+            {"type": "file_write", "path": ["not", "a", "string"]},
+            {"type": "file_write"},  # missing "path" entirely
+            {"type": "network_connect", "host": 12345, "port": 80},  # host not a string
+            {"type": "network_connect"},  # missing "host" entirely
+        ]
+        f = extract_dynamic_features(events)  # must not raise
+        self.assertEqual(f.num_files_written, 2)
+        self.assertEqual(f.num_persistence_writes, 0)
+        self.assertEqual(f.num_network_connections, 2)
+        self.assertEqual(f.unique_remote_hosts, 0)
+
+    def test_dynamic_risk_boost_reflects_observed_evidence(self):
+        from security_classifier.dynamic_features import DynamicFeatures, dynamic_risk_boost
+
+        self.assertEqual(dynamic_risk_boost(DynamicFeatures()), 0.0)
+
+        strong = DynamicFeatures(num_persistence_writes=1, num_network_connections=1, num_subprocess_spawned=1)
+        self.assertGreater(dynamic_risk_boost(strong), 0.5)
+        self.assertLessEqual(dynamic_risk_boost(strong), 0.6)  # capped
+
     def test_explain_incorporates_dynamic_trace(self):
         from security_classifier.dynamic_features import DynamicFeatures
         from security_classifier.explain import summarize
@@ -283,7 +331,7 @@ class DynamicFeaturesTests(unittest.TestCase):
             unique_remote_hosts=1,
             num_persistence_writes=1,
         )
-        summary = summarize("x.py", f, score=0.2, dynamic=dynamic, backend="template")
+        summary = summarize("x.py", f, score=0.2, dynamic=dynamic, engine=None)
         self.assertIn("sandboxed trace", summary)
         self.assertIn("persistence", summary)
 
@@ -292,7 +340,7 @@ class DynamicFeaturesTests(unittest.TestCase):
         from security_classifier.features import extract_features
 
         f = extract_features(BENIGN_SNIPPET)
-        summary = summarize("x.py", f, score=0.2, dynamic=None, backend="template")
+        summary = summarize("x.py", f, score=0.2, dynamic=None, engine=None)
         self.assertIn("No sandboxed dynamic trace", summary)
 
 
@@ -329,6 +377,63 @@ class RealBenignCorpusTests(unittest.TestCase):
         proba = clf.predict_proba(xs)
         benign_scores = [p[1] for p, y in zip(proba, ys) if y == BENIGN]
         self.assertLess(sum(benign_scores) / len(benign_scores), 0.15)
+
+
+class ScoreCombinationTests(unittest.TestCase):
+    """--trace must change the printed score/verdict, not just the --explain
+    text -- this is the fix for the bug the review agents caught: dynamic
+    evidence was computed and shown in prose but silently never influenced
+    clf.predict_proba's output."""
+
+    def setUp(self):
+        try:
+            import sklearn  # noqa: F401
+        except ImportError:
+            self.skipTest("scikit-learn not installed")
+
+    def _trained_classifier(self):
+        from sklearn.ensemble import RandomForestClassifier
+
+        from security_classifier.dataset import build_dataset
+
+        xs, ys = build_dataset()  # synthetic placeholder data
+        clf = RandomForestClassifier(n_estimators=50, random_state=0, class_weight="balanced")
+        clf.fit(xs, ys)
+        return clf
+
+    def test_no_trace_leaves_score_unchanged(self):
+        from security_classifier.classify import _score_file
+        from security_classifier.features import extract_features
+
+        clf = self._trained_classifier()
+        f = extract_features(BENIGN_SNIPPET)
+        combined, static = _score_file(clf, f, dynamic=None)
+        self.assertEqual(combined, static)
+
+    def test_strong_dynamic_evidence_raises_the_combined_score(self):
+        from security_classifier.classify import _score_file
+        from security_classifier.dynamic_features import DynamicFeatures
+        from security_classifier.features import extract_features
+
+        clf = self._trained_classifier()
+        f = extract_features(BENIGN_SNIPPET)  # weak/no static signal
+        dynamic = DynamicFeatures(num_network_connections=1, num_persistence_writes=1)
+
+        combined, static = _score_file(clf, f, dynamic)
+        self.assertGreater(combined, static)
+
+    def test_combined_score_is_clamped_to_one(self):
+        from security_classifier.classify import _score_file
+        from security_classifier.dynamic_features import DynamicFeatures
+        from security_classifier.features import extract_features
+
+        clf = self._trained_classifier()
+        f = extract_features(SUSPICIOUS_SNIPPET)  # already high static score
+        dynamic = DynamicFeatures(
+            num_network_connections=1, num_persistence_writes=1, num_subprocess_spawned=1
+        )
+        combined, _static = _score_file(clf, f, dynamic)
+        self.assertLessEqual(combined, 1.0)
 
 
 if __name__ == "__main__":

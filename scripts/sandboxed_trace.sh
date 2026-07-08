@@ -63,19 +63,27 @@ import sys
 
 raw_path, out_path = sys.argv[1], sys.argv[2]
 
-CONNECT_RE = re.compile(r'connect\(.*sin_port=htons\((\d+)\).*sin_addr=inet_addr\("([^"]+)"\)')
-OPEN_RE = re.compile(r'open(?:at)?\([^,]*"([^"]+)".*O_WRONLY|O_CREAT|O_TRUNC')
+# IPv4: connect(3, {sa_family=AF_INET, sin_port=htons(4444), sin_addr=inet_addr("1.2.3.4")}, 16) = 0
+CONNECT_RE_V4 = re.compile(r'connect\(.*sin_port=htons\((\d+)\).*sin_addr=inet_addr\("([^"]+)"\)')
+# IPv6: connect(3, {sa_family=AF_INET6, sin6_port=htons(4444), ..., sin6_addr=inet_pton(AF_INET6, "::1")}, 28) = 0
+CONNECT_RE_V6 = re.compile(r'connect\(.*sin6_port=htons\((\d+)\).*sin6_addr=inet_pton\(AF_INET6,\s*"([^"]+)"\)')
+# open(AT_FDCWD, "/path", O_WRONLY|O_CREAT|O_TRUNC, 0644) = 4  -- note the ", "
+# between the fd argument and the quoted path; a plain `[^,]*"` can't cross it.
+OPEN_RE = re.compile(r'open(?:at)?\((?:AT_FDCWD,\s*)?"([^"]+)",\s*([A-Z_|]+)')
+WRITE_FLAGS = ("O_WRONLY", "O_RDWR", "O_CREAT", "O_TRUNC")
 EXECVE_RE = re.compile(r'execve\("([^"]+)"')
 
 events = []
 try:
     with open(raw_path, "r", errors="replace") as fh:
         for line in fh:
-            if m := CONNECT_RE.search(line):
+            if m := (CONNECT_RE_V4.search(line) or CONNECT_RE_V6.search(line)):
                 port, host = m.group(1), m.group(2)
                 events.append({"type": "network_connect", "host": host, "port": int(port)})
             elif m := OPEN_RE.search(line):
-                events.append({"type": "file_write", "path": m.group(1)})
+                path, flags = m.group(1), m.group(2)
+                if any(flag in flags for flag in WRITE_FLAGS):
+                    events.append({"type": "file_write", "path": path})
             elif m := EXECVE_RE.search(line):
                 events.append({"type": "subprocess", "cmd": m.group(1)})
 except FileNotFoundError:

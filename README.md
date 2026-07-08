@@ -274,10 +274,23 @@ python -m security_classifier.classify path/to/suspect.py --explain --trace trac
 
 `scripts/sandboxed_trace.sh` is a heavily-commented template (Docker,
 `--network none`, dropped capabilities, a hard timeout, `strace`) for
-collecting that trace safely — read its warning header before using it. When a
-trace is supplied, `--explain` treats observed behavior (an actual outbound
-connection, an actual write to an autostart location) as stronger evidence
-than static structure alone.
+collecting that trace safely — read its warning header before using it.
+
+**A trace changes the printed score, not just the `--explain` text.** The
+static classifier's malicious class is still only synthetic placeholder data
+(see above), so dynamic evidence isn't blended in by retraining — instead,
+`classify.py` applies a transparent, hand-tuned additive boost (see
+`dynamic_features.dynamic_risk_boost`: +0.35 for an observed persistence
+write, +0.25 for an observed outbound connection, +0.05 for a spawned
+subprocess, capped at +0.6) on top of the static score. This is a documented
+heuristic, not a trained model — there's no labeled dynamic-behavior dataset
+to calibrate it against — but it means the verdict itself reflects observed
+behavior:
+
+```
+ 0.65  MALICIOUS  suspect.py                                   # static only
+ 1.00  MALICIOUS  suspect.py  (static 0.65 + behavioral evidence)  # with --trace
+```
 
 ## Tests
 

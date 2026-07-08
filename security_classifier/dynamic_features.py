@@ -32,7 +32,11 @@ from dataclasses import asdict, dataclass
 from typing import Dict, Iterable, List
 
 # Paths written outside a sandbox's scratch directory that indicate an actual
-# (not just hinted-at) persistence attempt.
+# (not just hinted-at) persistence attempt. Matched against a real observed
+# file-write path, so entries here are deliberately path-shaped and specific
+# -- contrast with features.PERSISTENCE_HINTS, which matches generic words
+# against raw source text and can afford to be broader. Keep both lists'
+# overlap intentional, not accidental drift, when editing either.
 PERSISTENCE_PATH_HINTS = (
     "/etc/cron", "crontab", "/etc/systemd", ".bashrc", ".bash_profile",
     "/etc/rc.local", "LaunchAgents", "/etc/init.d",
@@ -85,7 +89,13 @@ def load_trace(path: str) -> List[dict]:
 
 
 def extract_dynamic_features(events: Iterable[dict]) -> DynamicFeatures:
-    """Turn a list of trace events into a :class:`DynamicFeatures` vector."""
+    """Turn a list of trace events into a :class:`DynamicFeatures` vector.
+
+    Event dicts come from an external trace file, so field values are treated
+    as untrusted: a detail field with the wrong JSON type (e.g. ``"path"`` as
+    a list instead of a string) is skipped rather than raising -- the event's
+    own count still increments, only the detail-dependent checks are skipped.
+    """
     features = DynamicFeatures()
     remote_hosts = set()
 
@@ -94,15 +104,17 @@ def extract_dynamic_features(events: Iterable[dict]) -> DynamicFeatures:
         if etype == "network_connect":
             features.num_network_connections += 1
             host = event.get("host")
-            if host:
+            if isinstance(host, str) and host:
                 remote_hosts.add(host)
         elif etype == "dns_lookup":
             features.num_dns_lookups += 1
         elif etype == "file_write":
             features.num_files_written += 1
-            path = (event.get("path") or "").lower()
-            if any(hint.lower() in path for hint in PERSISTENCE_PATH_HINTS):
-                features.num_persistence_writes += 1
+            path = event.get("path")
+            if isinstance(path, str):
+                path_lower = path.lower()
+                if any(hint.lower() in path_lower for hint in PERSISTENCE_PATH_HINTS):
+                    features.num_persistence_writes += 1
         elif etype == "subprocess":
             features.num_subprocess_spawned += 1
         # unrecognized event types are ignored, not an error
@@ -111,6 +123,26 @@ def extract_dynamic_features(events: Iterable[dict]) -> DynamicFeatures:
     return features
 
 
-def combine_vectors(static_vector: List[float], dynamic_vector: List[float]) -> List[float]:
-    """Concatenate a static feature vector with a dynamic one for training/scoring."""
-    return [*static_vector, *dynamic_vector]
+def dynamic_risk_boost(dynamic: DynamicFeatures) -> float:
+    """A transparent, hand-tuned score adjustment from OBSERVED behavior.
+
+    This is a rule-based heuristic, not a trained model -- there is no
+    labeled dynamic-behavior dataset to calibrate against (the static
+    classifier's malicious class is still only synthetic placeholder data;
+    see ``dataset.py``). It exists because observed behavior is materially
+    stronger evidence than static structure: an actual write to an autostart
+    location or an actual outbound connection is more informative than a file
+    merely importing ``socket`` or containing the string ``"crontab"``.
+
+    Returned value is additive on top of the static classifier's P(malicious)
+    and capped so dynamic evidence alone can shift, but never single-handedly
+    force, the verdict -- call sites should still clamp the sum to [0, 1].
+    """
+    boost = 0.0
+    if dynamic.num_persistence_writes > 0:
+        boost += 0.35
+    if dynamic.num_network_connections > 0:
+        boost += 0.25
+    if dynamic.num_subprocess_spawned > 0:
+        boost += 0.05
+    return min(boost, 0.6)

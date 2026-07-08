@@ -23,6 +23,13 @@ WATCHED_IMPORTS = (
     "shutil", "winreg", "urllib", "requests", "ftplib", "telnetlib",
 )
 
+# Matched as a substring anywhere in raw source text, so generic terms like
+# "startup"/"registry" are reasonable here (a comment or string mentioning
+# them is still a weak hint). Contrast with dynamic_features.PERSISTENCE_PATH_HINTS,
+# which matches against an actual observed file-write *path* and is deliberately
+# more path-shaped/specific -- a bare word like "startup" would false-positive
+# on an innocuous real filename there. Keep both lists' overlap intentional,
+# not accidental drift, when editing either.
 PERSISTENCE_HINTS = (
     "crontab", "/etc/cron", "startup", "hkey_", "launchagents",
     "systemd", ".bashrc", ".bash_profile", "registry",
