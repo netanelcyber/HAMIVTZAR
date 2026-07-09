@@ -44,7 +44,7 @@ itself.
 | UpdraftPlus | `updraftplus` | blocked — see note below |
 | Akismet Anti-Spam | `akismet` | blocked — see note below |
 | Elementor Website Builder | `elementor` | [`elementor/FINDINGS.md`](elementor/FINDINGS.md) — 0 confirmed (OWASP-structured, partial coverage) |
-| All in One SEO | `all-in-one-seo-pack` | not started |
+| All in One SEO | `all-in-one-seo-pack` | [`all-in-one-seo/FINDINGS.md`](all-in-one-seo/FINDINGS.md) — 1 finding (medium, SSRF) + 2 known CVEs confirmed patched |
 | WPForms Lite | `wpforms-lite` | not started |
 | Classic Editor | `classic-editor` | not started |
 | Really Simple Security | `really-simple-ssl` | not started |
