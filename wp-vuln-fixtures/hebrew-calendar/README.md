@@ -62,17 +62,26 @@ A working scanner/WAF/classifier should flag: unprepared `$wpdb` query
 construction from request input, unescaped echo of request input, and an
 unauthenticated `nopriv` AJAX action with no capability or nonce check.
 
-## Suggested next step: a "fixed" counterpart
+## Fixed / secure counterpart
 
-For before/after validation (does the tool correctly tell vulnerable from
-patched code, not just "contains SQL keywords"), pair this fixture with a
-patched version that:
+`hebrew-calendar-fixed.php` implements the same feature (shortcode + AJAX
+lookup + DB cache) with the vulnerabilities patched, for before/after
+validation — does your tool correctly tell vulnerable from patched code, not
+just "contains SQL keywords" or "has a $wpdb call":
 
-- Uses `$wpdb->prepare( "... WHERE greg_date = %s", $atts['date'] )` for
-  every query.
-- Runs `esc_html( $atts['date'] )` (and validates the date format, e.g. with
-  `preg_match('/^\d{4}-\d{2}-\d{2}$/', ...)`) before output.
-- Checks a nonce (`check_ajax_referer()`) and drops the `nopriv` hook unless
-  the lookup is genuinely meant to be public.
+| | Vulnerable (`hebrew-calendar-vuln-fixture.php`) | Fixed (`hebrew-calendar-fixed.php`) |
+|---|---|---|
+| Shortcode | `[hebrew_calendar date="..."]` | `[hebrew_calendar_fixed date="..."]` |
+| AJAX action | `hamivtzar_hebrew_lookup` | `hamivtzar_hebrew_lookup_fixed` |
+| DB table | `{prefix}hamivtzar_hebrew_cache` | `{prefix}hamivtzar_hebrew_cache_fixed` |
+| Query building | raw string concatenation into SQL | `$wpdb->prepare()` with `%s` placeholders everywhere, `$wpdb->esc_like()` for the `LIKE` pattern |
+| Input handling | any string accepted as-is | `hamivtzar_hc_fixed_validate_date()` — strict `Y-m-d` regex + `checkdate()`, reject-by-default |
+| Output | raw echo of user input | `esc_html()`/`esc_attr()` on every dynamic value |
+| AJAX response | unescaped `print_r()` HTML dump | `wp_send_json_success()` with pre-escaped fields |
+| AJAX auth | no nonce, no capability check | `check_ajax_referer()` against a per-action nonce (still intentionally left public/read-only by design, not "fixed" into requiring a capability, since the feature is meant to be public — the nonce still binds calls to a page that actually rendered the shortcode) |
 
-Ask if you'd like that patched version generated alongside this one.
+All function names, hook names, and table names in the fixed version are
+suffixed `_fixed` and don't collide with the vulnerable fixture, so both
+plugins can be activated **at the same time** on the same isolated test
+install — point your scanner/classifier at both and confirm it flags the
+first and not the second.
