@@ -42,8 +42,8 @@ itself.
 | Jetpack | `jetpack` | [`jetpack/FINDINGS.md`](jetpack/FINDINGS.md) — 1 finding (low-medium) |
 | Contact Form 7 | `contact-form-7` | [`contact-form-7/FINDINGS.md`](contact-form-7/FINDINGS.md) — 0 confirmed (OWASP-structured) |
 | UpdraftPlus | `updraftplus` | blocked — see note below |
-| Akismet Anti-Spam | `akismet` | not started |
-| Elementor Website Builder | `elementor` | not started |
+| Akismet Anti-Spam | `akismet` | blocked — see note below |
+| Elementor Website Builder | `elementor` | [`elementor/FINDINGS.md`](elementor/FINDINGS.md) — 0 confirmed (OWASP-structured, partial coverage) |
 | All in One SEO | `all-in-one-seo-pack` | not started |
 | WPForms Lite | `wpforms-lite` | not started |
 | Classic Editor | `classic-editor` | not started |
@@ -68,3 +68,9 @@ respectively — auditing either would mean reviewing decade-old code and
 presenting it as current, which isn't useful for real disclosure. Skipped
 until a current source is available (e.g. the user supplies a zip/current
 mirror, or wordpress.org's SVN becomes reachable).
+
+**Akismet** has the same problem: no dedicated actively-maintained dev
+GitHub repo (Automattic ships it as part of the WordPress.org plugin
+directory and their VIP mu-plugins bundle, not a standalone dev repo), and
+the only community SVN mirror reachable from here (`wp-plugins/akismet`)
+is frozen at 2015 (v3.1.6a1). Skipped for the same reason as UpdraftPlus.
