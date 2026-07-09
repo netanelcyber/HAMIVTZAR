@@ -32,6 +32,10 @@ itself.
   rather than an ad-hoc vulnerability-class list, so coverage per category
   is explicit — including categories with no findings, so the absence is a
   documented negative result, not silence.
+- **CWE IDs.** Starting with the WPForms pass, each individual finding also
+  carries a specific CWE number (e.g. CWE-502, CWE-494) alongside its OWASP
+  category, so severity/class is precise rather than just the broad OWASP
+  bucket.
 
 ## Plugins reviewed
 
@@ -45,7 +49,7 @@ itself.
 | Akismet Anti-Spam | `akismet` | blocked — see note below |
 | Elementor Website Builder | `elementor` | [`elementor/FINDINGS.md`](elementor/FINDINGS.md) — 0 confirmed (OWASP-structured, partial coverage) |
 | All in One SEO | `all-in-one-seo-pack` | [`all-in-one-seo/FINDINGS.md`](all-in-one-seo/FINDINGS.md) — 1 finding (medium, SSRF) + 2 known CVEs confirmed patched |
-| WPForms Lite | `wpforms-lite` | not started |
+| WPForms Lite | `wpforms-lite` | [`wpforms/FINDINGS.md`](wpforms/FINDINGS.md) — 1 finding (high, conditional — CWE-494/CWE-306) |
 | Classic Editor | `classic-editor` | not started |
 | Really Simple Security | `really-simple-ssl` | not started |
 | LiteSpeed Cache | `litespeed-cache` | not started |
@@ -74,3 +78,9 @@ GitHub repo (Automattic ships it as part of the WordPress.org plugin
 directory and their VIP mu-plugins bundle, not a standalone dev repo), and
 the only community SVN mirror reachable from here (`wp-plugins/akismet`)
 is frozen at 2015 (v3.1.6a1). Skipped for the same reason as UpdraftPlus.
+
+**WPForms Lite** also has no dedicated dev repo, but its `common-repository`
+mirror is at least reasonably recent (2024-11-01, v1.9.1.6, vs. the current
+v1.9.9.2+) — reviewed with that freshness gap explicitly caveated in
+`wpforms/FINDINGS.md`; any finding there should be re-verified against the
+current release before disclosure.
