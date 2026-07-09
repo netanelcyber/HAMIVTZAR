@@ -33,6 +33,23 @@ itself.
 |---|---|---|
 | Yoast SEO | `wordpress-seo` | [`yoast-seo/FINDINGS.md`](yoast-seo/FINDINGS.md) — 2 findings |
 | WooCommerce | `woocommerce` | [`woocommerce/FINDINGS.md`](woocommerce/FINDINGS.md) — 0 confirmed, 1 low-confidence note |
-| Jetpack | `jetpack` | not started |
+| Jetpack | `jetpack` | [`jetpack/FINDINGS.md`](jetpack/FINDINGS.md) — 1 finding (low-medium) |
 | UpdraftPlus | `updraftplus` | not started |
 | Contact Form 7 | `contact-form-7` | not started |
+| Akismet Anti-Spam | `akismet` | not started |
+| Elementor Website Builder | `elementor` | not started |
+| All in One SEO | `all-in-one-seo-pack` | not started |
+| WPForms Lite | `wpforms-lite` | not started |
+| Classic Editor | `classic-editor` | not started |
+| Really Simple Security | `really-simple-ssl` | not started |
+| LiteSpeed Cache | `litespeed-cache` | not started |
+| Wordfence Security | `wordfence` | not started |
+| MonsterInsights | `google-analytics-for-wordpress` | not started |
+| Advanced Custom Fields | `advanced-custom-fields` | not started |
+| Rank Math SEO | `seo-by-rank-math` | not started |
+
+Ranks 6-16 above are a best-effort candidate list based on general
+knowledge of long-standing popular WordPress plugins, not a live fetch —
+`wordpress.org`/`api.wordpress.org` are blocked by this environment's
+egress policy, so there's no way to pull the actual current "Popular"
+ranking from here. Treat the ordering as approximate.
