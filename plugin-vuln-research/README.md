@@ -26,6 +26,12 @@ itself.
 - Before writing something up as a "finding," search for whether it's
   already publicly known/patched (CVE databases, vendor changelog). Note in
   the report if that check was inconclusive rather than skipping it.
+- **OWASP Top 10 (2021) structure.** Starting with the Contact Form 7 pass,
+  findings reports are organized under OWASP Top 10 categories (A01 Broken
+  Access Control, A02 Cryptographic Failures, A03 Injection, ... A10 SSRF)
+  rather than an ad-hoc vulnerability-class list, so coverage per category
+  is explicit — including categories with no findings, so the absence is a
+  documented negative result, not silence.
 
 ## Plugins reviewed
 
@@ -34,8 +40,8 @@ itself.
 | Yoast SEO | `wordpress-seo` | [`yoast-seo/FINDINGS.md`](yoast-seo/FINDINGS.md) — 2 findings |
 | WooCommerce | `woocommerce` | [`woocommerce/FINDINGS.md`](woocommerce/FINDINGS.md) — 0 confirmed, 1 low-confidence note |
 | Jetpack | `jetpack` | [`jetpack/FINDINGS.md`](jetpack/FINDINGS.md) — 1 finding (low-medium) |
-| UpdraftPlus | `updraftplus` | not started |
-| Contact Form 7 | `contact-form-7` | not started |
+| Contact Form 7 | `contact-form-7` | [`contact-form-7/FINDINGS.md`](contact-form-7/FINDINGS.md) — 0 confirmed (OWASP-structured) |
+| UpdraftPlus | `updraftplus` | blocked — see note below |
 | Akismet Anti-Spam | `akismet` | not started |
 | Elementor Website Builder | `elementor` | not started |
 | All in One SEO | `all-in-one-seo-pack` | not started |
@@ -53,3 +59,12 @@ knowledge of long-standing popular WordPress plugins, not a live fetch —
 `wordpress.org`/`api.wordpress.org` are blocked by this environment's
 egress policy, so there's no way to pull the actual current "Popular"
 ranking from here. Treat the ordering as approximate.
+
+**UpdraftPlus** has no dedicated actively-maintained dev GitHub repo (unlike
+Yoast/WooCommerce/Jetpack/CF7). The only mirrors reachable from this
+environment (`wp-plugins/updraftplus`, `WPPlugins/updraftplus` — community
+SVN-mirror bots) are stale, frozen at 2015 (v1.11.3) and 2017 (v1.13.4)
+respectively — auditing either would mean reviewing decade-old code and
+presenting it as current, which isn't useful for real disclosure. Skipped
+until a current source is available (e.g. the user supplies a zip/current
+mirror, or wordpress.org's SVN becomes reachable).
