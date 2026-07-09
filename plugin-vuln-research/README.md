@@ -32,7 +32,7 @@ itself.
 | Plugin | Slug | Status |
 |---|---|---|
 | Yoast SEO | `wordpress-seo` | [`yoast-seo/FINDINGS.md`](yoast-seo/FINDINGS.md) — 2 findings |
-| WooCommerce | `woocommerce` | not started |
+| WooCommerce | `woocommerce` | [`woocommerce/FINDINGS.md`](woocommerce/FINDINGS.md) — 0 confirmed, 1 low-confidence note |
 | Jetpack | `jetpack` | not started |
 | UpdraftPlus | `updraftplus` | not started |
 | Contact Form 7 | `contact-form-7` | not started |
