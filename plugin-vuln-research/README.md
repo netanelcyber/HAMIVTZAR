@@ -50,7 +50,7 @@ itself.
 | Elementor Website Builder | `elementor` | [`elementor/FINDINGS.md`](elementor/FINDINGS.md) — 0 confirmed (OWASP-structured, partial coverage) |
 | All in One SEO | `all-in-one-seo-pack` | [`all-in-one-seo/FINDINGS.md`](all-in-one-seo/FINDINGS.md) — 1 finding (medium, SSRF) + 2 known CVEs confirmed patched |
 | WPForms Lite | `wpforms-lite` | [`wpforms/FINDINGS.md`](wpforms/FINDINGS.md) — 1 finding (high, conditional — CWE-494/CWE-306) |
-| Classic Editor | `classic-editor` | not started |
+| Classic Editor | `classic-editor` | [`classic-editor/FINDINGS.md`](classic-editor/FINDINGS.md) — 0 confirmed (full file read) |
 | Really Simple Security | `really-simple-ssl` | not started |
 | LiteSpeed Cache | `litespeed-cache` | not started |
 | Wordfence Security | `wordfence` | not started |
