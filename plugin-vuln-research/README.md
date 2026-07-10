@@ -57,6 +57,7 @@ itself.
 | MonsterInsights | `google-analytics-for-wordpress` | not started |
 | Advanced Custom Fields | `advanced-custom-fields` | not started |
 | Rank Math SEO | `seo-by-rank-math` | not started |
+| Expert Lawyer (theme) | `expert-lawyer` | [`expert-lawyer-theme/FINDINGS.md`](expert-lawyer-theme/FINDINGS.md) — 1 finding (medium-high, conditional — CWE-829/CWE-494), user-supplied ZIP, full file read incl. all templates |
 
 Ranks 6-16 above are a best-effort candidate list based on general
 knowledge of long-standing popular WordPress plugins, not a live fetch —
