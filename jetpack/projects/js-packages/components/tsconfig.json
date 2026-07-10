@@ -1,0 +1,10 @@
+{
+	"extends": "jetpack-js-tools/tsconfig.tsc.json",
+	"include": [ "./index.ts", "./components", "./lib", "./tools" ],
+	"compilerOptions": {
+		"sourceMap": false,
+		"outDir": "./build/",
+		"target": "es2022",
+		"rootDir": "./"
+	}
+}
