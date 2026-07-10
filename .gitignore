@@ -13,6 +13,7 @@ env/
 index.json
 *.index.json
 .env
+*.joblib
 
 # OS / editor
 .DS_Store
