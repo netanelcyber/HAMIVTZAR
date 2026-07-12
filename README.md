@@ -153,8 +153,13 @@ kiddush_hachodesh/                 Exact-arithmetic astronomical constants deriv
   constants.py                       Base halachic constants (molad interval, molad tohu, 19-year cycle) as exact Fractions
   mean_motion.py                     Derived constants: implied solar year, mean daily motion of sun/moon, drift vs modern values
   molad.py                           Molad-of-year calculator via exact integer chelek arithmetic
-  cli.py                             constants / drift / molad CLI commands
+  cli.py                             constants / drift / molad / sight CLI commands
   CONSTANTS.md                       Write-up of the derivation and sources (Hebrew)
+  lunar_theory/                      Epicycle/eccenter geometric model: anomaly, node, latitude, horizon sighting geometry
+    sine_table.py                      Reconstructed R=60 sine table (bisection + interpolation, no math.sin)
+    params.py                          Standard documented astronomical parameters (not transcribed from the text)
+    mean_position.py / equation_of_center.py / latitude.py / horizon.py / visibility.py   The model itself
+    LUNAR_THEORY.md                    Write-up of the method and its provenance (Hebrew)
 scripts/fetch_benign_corpus.py    Clones legitimate SDKs for classifier training data
 scripts/sandboxed_trace.sh        Template: collect a runtime trace on YOUR isolated sandbox
 tests/                            Offline tests for ingestion, retrieval, backends, and the classifier, and kiddush_hachodesh
@@ -297,6 +302,24 @@ Floats are only ever used at the boundary, to compare an exact derived
 constant against an inherently-irrational modern measured value — never in
 the derivation itself.
 
+`kiddush_hachodesh/lunar_theory/` goes further and models the full
+epicycle/eccenter geometry behind chapters 11-19: the moon's anomaly
+correction, its node and ecliptic latitude, and the horizon-sighting
+geometry (altitude at sunset, parallax, elongation). It uses a from-scratch
+reconstruction of the sexagesimal trigonometric method itself — a sine
+table built by geometric bisection from exactly-constructible angles and
+consulted by linear interpolation, the same table-and-interpolation
+technique the underlying Ptolemaic/al-Battani tradition used, rather than
+calling `math.sin` directly. The numeric model parameters (epicycle radius,
+orbital inclination, anomalistic/nodal periods) are standard documented
+values from the history of astronomy, not digits transcribed from the
+printed halachic tables — see `lunar_theory/LUNAR_THEORY.md` for exactly
+what is and isn't sourced from the text.
+
+```bash
+python -m kiddush_hachodesh.cli sight 1350 --days-after 2   # full step-by-step sighting trace
+```
+
 ## Tests
 
 ```bash
@@ -306,7 +329,8 @@ python -m unittest discover -s tests -v
 Covers tokenization, chunking, BM25 ranking, index save/load round-tripping,
 the extractive backend, backend resolution (including that `auto` never
 selects the online Claude backend), the security classifier's feature
-extraction / dataset assembly / training pipeline, and the
-`kiddush_hachodesh` exact-arithmetic constants and molad calculator. Runs
+extraction / dataset assembly / training pipeline, the `kiddush_hachodesh`
+exact-arithmetic constants and molad calculator, and the `lunar_theory`
+sine-table accuracy, equation-of-center bounds, and sighting pipeline. Runs
 fully offline; the two end-to-end training tests skip automatically if
 `scikit-learn`/`joblib` aren't installed.

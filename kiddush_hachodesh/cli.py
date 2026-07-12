@@ -7,6 +7,7 @@ from fractions import Fraction
 from . import constants as C
 from . import mean_motion as MM
 from .molad import is_leap_year, molad_tishrei
+from .lunar_theory.visibility import evaluate_after_molad
 
 
 def _fmt_deg(f: Fraction) -> str:
@@ -66,6 +67,16 @@ def cmd_molad(args) -> None:
     print(f"מולד תשרי לשנה {args.year}: {m}  (שנה מעוברת: {leap})")
 
 
+def cmd_sight(args) -> None:
+    print(
+        "מודל גאומטרי (אפיציקל/אקסצנטר) לחישוב מיקום הירח וראייתו -- "
+        "פרמטרים סטנדרטיים מתועדים, לא ספרות מצוטטות מהרמב\"ם. ראו "
+        "kiddush_hachodesh/lunar_theory/LUNAR_THEORY.md.\n"
+    )
+    report = evaluate_after_molad(args.months, days_after=args.days_after)
+    print(report.format())
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="kiddush_hachodesh")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -76,6 +87,14 @@ def main(argv=None) -> int:
     p_molad = sub.add_parser("molad", help="Compute the molad of Tishrei for a given Hebrew year")
     p_molad.add_argument("year", type=int)
     p_molad.set_defaults(func=cmd_molad)
+
+    p_sight = sub.add_parser(
+        "sight",
+        help="Run the full lunar-theory sighting pipeline N days after the molad of a given month",
+    )
+    p_sight.add_argument("months", type=int, help="Months elapsed since creation (see 'molad')")
+    p_sight.add_argument("--days-after", type=float, default=1.0)
+    p_sight.set_defaults(func=cmd_sight)
 
     args = parser.parse_args(argv)
     args.func(args)

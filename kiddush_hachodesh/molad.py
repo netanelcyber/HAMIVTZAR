@@ -7,6 +7,7 @@ is exact by construction. Weekday 0 = Sunday .. 6 = Saturday.
 """
 
 from dataclasses import dataclass
+from fractions import Fraction
 
 from .constants import (
     CHALAKIM_PER_DAY,
@@ -91,3 +92,27 @@ def molad_tishrei(year: int) -> Molad:
     months = months_elapsed_before_tishrei(year)
     total_chalakim = MOLAD_TOHU_TOTAL_CHALAKIM + months * MOLAD_INTERVAL_CHALAKIM
     return molad_from_total_chalakim(total_chalakim)
+
+
+def molad_total_chalakim_of_month(total_months: int) -> int:
+    """Chalakim elapsed, from the epoch (the theoretical Sunday 00:00
+    preceding Molad Tohu), to the molad of the ``total_months``-th month
+    since creation (0 = the month of Molad Tohu itself)."""
+    return MOLAD_TOHU_TOTAL_CHALAKIM + total_months * MOLAD_INTERVAL_CHALAKIM
+
+
+def molad_elapsed_days(total_months: int) -> Fraction:
+    """Exact elapsed days from the epoch (the theoretical Sunday 00:00
+    preceding Molad Tohu) to the molad of ``total_months``."""
+    return Fraction(molad_total_chalakim_of_month(total_months), CHALAKIM_PER_DAY)
+
+
+def days_since_molad_tohu(total_months: int) -> Fraction:
+    """Exact elapsed days from Molad Tohu itself (total_months=0) to the
+    molad of ``total_months``. Molad Tohu is, by definition, a mean
+    conjunction (mean elongation = 0), so this -- not the weekday-counting
+    epoch used by ``molad_elapsed_days`` -- is the correct t=0 for
+    ``lunar_theory``'s mean-longitude formulas: it guarantees mean sun and
+    mean moon longitude are equal at every multiple of the molad interval,
+    exactly as they must be at every molad."""
+    return Fraction(total_months * MOLAD_INTERVAL_CHALAKIM, CHALAKIM_PER_DAY)
