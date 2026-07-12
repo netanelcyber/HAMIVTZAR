@@ -149,9 +149,15 @@ security_classifier/              Defensive static + optional dynamic classifier
   dynamic_features.py               Parses a runtime trace you collected (never executes code)
   dataset.py / train.py / analyze.py   Dataset assembly, training, cross-validated analytics
   classify.py / explain.py          Score a file; natural-language summary of the finding
+kiddush_hachodesh/                 Exact-arithmetic astronomical constants derived from Hilchot Kiddush HaChodesh
+  constants.py                       Base halachic constants (molad interval, molad tohu, 19-year cycle) as exact Fractions
+  mean_motion.py                     Derived constants: implied solar year, mean daily motion of sun/moon, drift vs modern values
+  molad.py                           Molad-of-year calculator via exact integer chelek arithmetic
+  cli.py                             constants / drift / molad CLI commands
+  CONSTANTS.md                       Write-up of the derivation and sources (Hebrew)
 scripts/fetch_benign_corpus.py    Clones legitimate SDKs for classifier training data
 scripts/sandboxed_trace.sh        Template: collect a runtime trace on YOUR isolated sandbox
-tests/                            Offline tests for ingestion, retrieval, backends, and the classifier
+tests/                            Offline tests for ingestion, retrieval, backends, and the classifier, and kiddush_hachodesh
 ```
 
 ## How it works
@@ -268,6 +274,29 @@ trace is supplied, `--explain` treats observed behavior (an actual outbound
 connection, an actual write to an autostart location) as stronger evidence
 than static structure alone.
 
+## Astronomical constants from Hilchot Kiddush HaChodesh
+
+`kiddush_hachodesh/` computes astronomical constants tied to Rambam's
+Hilchot Kiddush HaChodesh (Mishneh Torah, Sefer Zmanim), chapter 6, using
+exact rational arithmetic (`fractions.Fraction`, no floating point) end to
+end. From the two exact figures the text states outright — the molad
+interval (29d 12h 793 chalakim) and the 19-year, 235-month intercalation
+cycle — it algebraically *derives* other constants: the implied mean solar
+year, the mean daily motion of the sun and moon, and the drift between the
+fixed calendar's implied year and the true (modern, measured) tropical
+year. See `kiddush_hachodesh/CONSTANTS.md` for the full derivation and
+sources.
+
+```bash
+python -m kiddush_hachodesh.cli constants   # base + derived constants, exact
+python -m kiddush_hachodesh.cli drift       # comparison against modern measured values
+python -m kiddush_hachodesh.cli molad 5786  # molad of Tishrei for a given Hebrew year
+```
+
+Floats are only ever used at the boundary, to compare an exact derived
+constant against an inherently-irrational modern measured value — never in
+the derivation itself.
+
 ## Tests
 
 ```bash
@@ -276,7 +305,8 @@ python -m unittest discover -s tests -v
 
 Covers tokenization, chunking, BM25 ranking, index save/load round-tripping,
 the extractive backend, backend resolution (including that `auto` never
-selects the online Claude backend), and the security classifier's feature
-extraction / dataset assembly / training pipeline. Runs fully offline; the two
-end-to-end training tests skip automatically if `scikit-learn`/`joblib` aren't
-installed.
+selects the online Claude backend), the security classifier's feature
+extraction / dataset assembly / training pipeline, and the
+`kiddush_hachodesh` exact-arithmetic constants and molad calculator. Runs
+fully offline; the two end-to-end training tests skip automatically if
+`scikit-learn`/`joblib` aren't installed.
