@@ -156,6 +156,7 @@ kiddush_hachodesh/                 Exact-arithmetic astronomical constants deriv
   cli.py                             constants / drift / molad / sight CLI commands
   CONSTANTS.md                       Write-up of the derivation and sources (Hebrew)
   lunar_theory/                      Epicycle/eccenter geometric model: anomaly, node, latitude, horizon sighting geometry
+    pythagorean_radicals.py            sqrt(2)/sqrt(3)/sqrt(5) traced to Pythagorean-theorem triangles, expanded via the binomial power series (exact Fraction, no math.sqrt)
     sine_table.py                      Reconstructed R=60 sine table (bisection + interpolation, no math.sin)
     params.py                          Standard documented astronomical parameters (not transcribed from the text)
     mean_position.py / equation_of_center.py / latitude.py / horizon.py / visibility.py   The model itself

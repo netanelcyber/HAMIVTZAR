@@ -11,10 +11,21 @@ Construction, in three stages that mirror the historical technique
 
 1. **Exact seed angles.** A handful of angles are constructible with
    compass and straightedge, so their sine/cosine are exact algebraic
-   (radical) expressions: 18, 30, 36, 45, 60, 72, 90 degrees.
+   (radical) expressions: 18, 30, 36, 45, 60, 72, 90 degrees. Every radical
+   involved is traced back to a right triangle via the Pythagorean theorem
+   and evaluated by inserting it into the binomial power series for
+   sqrt(1+x), in exact ``Fraction`` arithmetic, no ``math.sqrt`` anywhere
+   -- see ``pythagorean_radicals.py``.
 2. **Combine and bisect.** The angle-difference identity gives an exact
    value at 72-60 = 12 degrees. Repeated half-angle bisection then drives
    this down to a small base step (here 0.1875 degrees, i.e. 12 / 2**6).
+   The seed angles are converted from exact ``Fraction`` to ``float`` right
+   at the start of this stage: composing another ~15 binomial-series
+   square roots on top of an already-nested exact fraction blows the
+   denominators up past thousands of digits within a handful of steps
+   (verified directly -- it is a real, measured limit, not a guess), so
+   this is the point where exactness is deliberately traded for the
+   double-precision arithmetic every other numerical library uses.
 3. **Step out the full table.** Starting from sin(0)=0, cos(0)=1, the
    angle-addition identity is applied repeatedly to advance by the base
    step until 90 degrees is covered. This is the same "walk the table
@@ -28,31 +39,19 @@ plus a proportional part, not a call to a black-box trig function.
 import math
 from dataclasses import dataclass
 
+from .pythagorean_radicals import seed_angles_exact
+
 RADIUS = 60.0
 BASE_STEP_DEGREES = 12.0 / (2 ** 6)  # 0.1875 degrees
 
 
 def _exact_seed_angles():
-    """Sine/cosine of the constructible seed angles, from closed-form
-    radical expressions -- not from math.sin/cos."""
-    sin18 = (math.sqrt(5) - 1) / 4
-    cos18 = math.sqrt(1 - sin18 ** 2)
-    sin30, cos30 = 0.5, math.sqrt(3) / 2
-    sin36 = math.sqrt(10 - 2 * math.sqrt(5)) / 4
-    cos36 = (1 + math.sqrt(5)) / 4
-    sin45 = cos45 = math.sqrt(2) / 2
-    sin60, cos60 = cos30, sin30
-    sin72, cos72 = cos18, sin18
-    sin90, cos90 = 1.0, 0.0
-    return {
-        18: (sin18, cos18),
-        30: (sin30, cos30),
-        36: (sin36, cos36),
-        45: (sin45, cos45),
-        60: (sin60, cos60),
-        72: (sin72, cos72),
-        90: (sin90, cos90),
-    }
+    """Sine/cosine of the constructible seed angles. The exact Fraction
+    values come from ``pythagorean_radicals.py`` (Pythagorean-theorem
+    radicals expanded via the binomial series); they are cast to float
+    here, at the documented exactness/tractability boundary (see module
+    docstring), before the bisection stage."""
+    return {deg: (float(s), float(c)) for deg, (s, c) in seed_angles_exact().items()}
 
 
 def _angle_difference(sin_a, cos_a, sin_b, cos_b):

@@ -8,6 +8,7 @@ import os
 import random
 import sys
 import unittest
+from fractions import Fraction
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -21,8 +22,55 @@ from kiddush_hachodesh.lunar_theory.mean_position import (
     true_longitude_moon,
     true_longitude_sun,
 )
+from kiddush_hachodesh.lunar_theory.pythagorean_radicals import (
+    COS18,
+    COS36,
+    SIN18,
+    SIN36,
+    SQRT2,
+    SQRT3,
+    SQRT5,
+    binomial_sqrt,
+)
 from kiddush_hachodesh.lunar_theory.sine_table import TABLE
 from kiddush_hachodesh.lunar_theory.visibility import evaluate, evaluate_after_molad
+
+
+class TestPythagoreanRadicals(unittest.TestCase):
+    def test_radicals_are_exact_fractions(self):
+        for value in (SQRT2, SQRT3, SQRT5, SIN18, COS18, SIN36, COS36):
+            self.assertIsInstance(value, Fraction)
+
+    def test_radicals_match_math_sqrt(self):
+        self.assertAlmostEqual(float(SQRT2), math.sqrt(2), places=12)
+        self.assertAlmostEqual(float(SQRT3), math.sqrt(3), places=12)
+        self.assertAlmostEqual(float(SQRT5), math.sqrt(5), places=12)
+
+    def test_sqrt2_squared_is_close_to_2(self):
+        # A finite binomial series can't land on 2 exactly (sqrt(2) is
+        # irrational), but truncating at 14 terms with a seed this close
+        # should agree with 2 far beyond double precision.
+        self.assertAlmostEqual(float(SQRT2 * SQRT2), 2.0, places=12)
+        self.assertAlmostEqual(float(SQRT3 * SQRT3), 3.0, places=12)
+        self.assertAlmostEqual(float(SQRT5 * SQRT5), 5.0, places=12)
+
+    def test_pythagorean_identity_sin18_cos18(self):
+        self.assertAlmostEqual(float(SIN18 * SIN18 + COS18 * COS18), 1.0, places=12)
+
+    def test_pythagorean_identity_sin36_cos36(self):
+        self.assertAlmostEqual(float(SIN36 * SIN36 + COS36 * COS36), 1.0, places=12)
+
+    def test_matches_known_angle_values(self):
+        self.assertAlmostEqual(float(SIN18), math.sin(math.radians(18)), places=12)
+        self.assertAlmostEqual(float(COS36), math.cos(math.radians(36)), places=12)
+
+    def test_binomial_sqrt_converges_with_more_terms(self):
+        errors = [
+            abs(float(binomial_sqrt(Fraction(2), Fraction(3, 2), terms=n)) - math.sqrt(2))
+            for n in (2, 4, 8)
+        ]
+        self.assertGreater(errors[0], errors[1])
+        self.assertGreater(errors[1], errors[2])
 
 
 class TestSineTable(unittest.TestCase):
