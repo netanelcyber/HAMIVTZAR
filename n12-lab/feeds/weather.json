@@ -1,0 +1,9 @@
+{
+  "type": "weather",
+  "updated": "lab",
+  "cities": [
+    {"name": "לב-הארץ", "temp": 26, "icon": "clear"},
+    {"name": "מזרח-הלאב", "temp": 32, "icon": "hot"},
+    {"name": "צפון-הלאב", "temp": 24, "icon": "cloudy"}
+  ]
+}

@@ -1,0 +1,11 @@
+# Local-only lab. The 127.0.0.1 prefix keeps it off your network.
+services:
+  hamivtzar-lab:
+    build: .
+    image: hamivtzar-lab
+    ports:
+      - "127.0.0.1:8099:8099"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8099"
+    # It's a throwaway target; no volumes, no secrets, no network to others.
