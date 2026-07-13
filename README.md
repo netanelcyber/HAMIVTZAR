@@ -149,8 +149,9 @@ security_classifier/              Defensive static + optional dynamic classifier
   dynamic_features.py               Parses a runtime trace you collected (never executes code)
   dataset.py / train.py / analyze.py   Dataset assembly, training, cross-validated analytics
   classify.py / explain.py          Score a file; natural-language summary of the finding
-scripts/fetch_benign_corpus.py    Clones legitimate SDKs for classifier training data
-scripts/sandboxed_trace.sh        Template: collect a runtime trace on YOUR isolated sandbox
+scripts/fetch_benign_corpus.py         Clones legitimate SDKs for classifier training data
+scripts/sandboxed_trace.sh             Template: collect a runtime trace on YOUR isolated sandbox
+scripts/install_claude_code_ubuntu.sh  Installs the Claude Code CLI (Node.js + npm package) on Ubuntu
 tests/                            Offline tests for ingestion, retrieval, backends, and the classifier
 ```
 
