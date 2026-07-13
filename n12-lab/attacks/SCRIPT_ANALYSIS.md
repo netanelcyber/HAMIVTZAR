@@ -51,6 +51,32 @@ console['log']('[HaMivtzar loader] init for publisher n-lab')
 ```
 so you can see the script just registers a publisher and logs — no magic.
 
+### A second worked example — the article page's `vad-hb` loader
+The **article page** serves its own copy of this pattern at `/static/vad-hb.js`
+(mirroring the real page's `var _0x2050=[...]` header-bidding snippet, with
+lab-generic branding). The very same decoder handles it — the rotation count and
+accessor name differ, but nothing else does:
+```
+python3 deobfuscate.py vad-hb-snippet.js
+curl -s http://127.0.0.1:8099/static/vad-hb.js | python3 deobfuscate.py -
+```
+Resolved, it's just a header-bidding injector — it builds a `<script>`, points
+its `src` at `//cdn.valuad.lab/hb/loader.js`, tags `data-publisher=n-lab`,
+appends it to `<head>`, pushes a `{ts,rnd}` record onto `window._vadHb`, and
+queues `googletag.pubads().disableInitialLoad()`:
+```js
+var _s = document.createElement('script');
+_s.type = 'text/javascript';
+_s.src  = '//cdn.valuad.lab/hb/loader.js';
+_s.setAttribute('data-publisher', 'n-lab');
+document.head.appendChild(_s);
+// ... window._vadHb.push({ts:Date.now(), rnd:Math.random()});
+// ... googletag.cmd.push(() => googletag.pubads().disableInitialLoad());
+```
+The takeaway matches the real thing: once decoded, the "scary" obfuscated blob is
+an ordinary ad/header-bidding loader — the value is seeing exactly which CDN it
+pulls from and which publisher id it announces.
+
 ### Doing it with off-the-shelf tools
 - **Prettier / js-beautify** first, to reflow minified code:
   `npx js-beautify hb-snippet.js` or https://beautifier.io (offline: the npm pkg).

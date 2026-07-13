@@ -76,6 +76,11 @@ PAGE_CSS = """
  form.search{margin:0}
  footer{max-width:1000px;margin:24px auto;padding:16px;color:#888;font-size:13px}
  code{background:#eee;padding:1px 4px;border-radius:3px}
+ article{background:#fff;border:1px solid #e5e5e5;padding:16px}
+ article h1{margin-top:0}
+ section.related,section.comments{background:#fff;border:1px solid #e5e5e5;
+   padding:12px;margin-top:12px}
+ section.related h3,section.comments h3{margin-top:0;color:#db0000}
 </style>
 """
 
@@ -91,6 +96,7 @@ def page(title, body):
         "<button>חפש</button></form></header>"
         "<nav>"
         "<a href='/'>לובי</a>"
+        "<a href='/article?id=1001'>כתבה</a>"
         "<a href='/newssearch?q=חדשות'>חיפוש</a>"
         "<a href='/AjaxPage?jspName=weather.json&type=weather'>מזג אוויר (feed)</a>"
         "<a href='/config/version'>version</a>"
@@ -184,6 +190,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.route_ajaxpage(qs)
         if path == "/api/chat":
             return self._json(200, {"messages": seed.CHAT_MESSAGES})
+        if path == "/api/comments":
+            return self.route_comments_get(qs)
         if path == "/proxy/multivac":
             return self.route_proxy(qs)
         if path == "/go":
@@ -205,6 +213,8 @@ class Handler(BaseHTTPRequestHandler):
         form = {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
         if parsed.path == "/api/chat":
             return self.route_chat_post(form)
+        if parsed.path == "/api/comments":
+            return self.route_comments_post(form)
         return self._send(404, page("404", "<main><section>404</section></main>"))
 
     # ---- individual routes ----
@@ -242,14 +252,108 @@ class Handler(BaseHTTPRequestHandler):
         if not art["published"]:
             note = ("<p style='color:#b00020'><b>טיוטה לא מפורסמת שנחשפה!</b><br>"
                     f"internal: <code>{html.escape(art['internal'])}</code></p>")
-        body = (
-            "<main><section><article>"
+
+        # Article body with an in-content ad slot between paragraphs — this is
+        # where the real page injects its header-bidding/googletag slots.
+        paras = art.get("paragraphs") or [art["body"]]
+        body_html = ""
+        for i, p in enumerate(paras):
+            body_html += f"<p>{html.escape(p)}</p>"
+            if i == 0:  # in-content ad slot after the lead paragraph
+                body_html += (
+                    "<div class='adslot' style='background:#faf7e6;border:1px dashed #cdb;"
+                    "padding:14px;margin:12px 0;color:#987;text-align:center'>"
+                    "מודעה (ad slot) — vad-hb</div>"
+                )
+
+        related = self.render_related(art.get("related", []))
+        comments = self.render_comments_html(aid)
+        comment_form = (
+            "<form method='post' action='/api/comments' style='margin-top:12px'>"
+            f"<input type='hidden' name='articleId' value='{aid}'>"
+            "<input name='name' placeholder='שם'> "
+            "<input name='text' placeholder='כתבו תגובה'> "
+            "<button>פרסמו תגובה</button></form>"
+        )
+
+        article_html = (
+            "<article>"
             f"<h1>{html.escape(art['title'])}</h1>"
             f"<small>{html.escape(art['author'])} | {html.escape(art['time'])}</small>"
-            f"<p>{html.escape(art['body'])}</p>{note}"
-            "</article></section></main>"
+            f"{body_html}{note}"
+            "</article>"
+            "<section class='related'><h3>עוד בלאב</h3>" + related + "</section>"
+            "<section class='comments'><h3>תגובות</h3>"
+            f"<div id='comments'>{comments}</div>{comment_form}</section>"
         )
+        # The article's own obfuscated header-bidding loader (2nd RE challenge).
+        scr = "<script src='/static/vad-hb.js'></script>"
+        body = "<main><section>" + article_html + "</section>" + self.render_article_aside() + "</main>" + scr
         return self._send(200, page(art["title"], body))
+
+    def render_related(self, ids):
+        out = ""
+        for rid in ids:
+            a = next((x for x in seed.ARTICLES if x["id"] == rid and x["published"]), None)
+            if not a:
+                continue
+            out += (
+                "<div class='teaser'>"
+                f"<a href='/article?id={a['id']}'>{html.escape(a['title'])}</a></div>"
+            )
+        return out or "<p>אין המלצות.</p>"
+
+    def render_article_aside(self):
+        # A recommendation strip fed through the (SSRF-able) multivac proxy, so
+        # the article page exercises the same rec-proxy surface as the real page.
+        return (
+            "<aside><h4>מומלצים עבורכם</h4>"
+            "<p style='font-size:13px;color:#777'>נטען דרך "
+            "<code>/proxy/multivac?url=…</code></p>"
+            "<div class='adslot' style='background:#faf7e6;border:1px dashed #cdb;"
+            "padding:20px;text-align:center;color:#987'>מודעה (side)</div>"
+            "</aside>"
+        )
+
+    def render_comments_html(self, aid):
+        out = ""
+        for c in seed.COMMENTS.get(aid, []):
+            # [VULN-11] stored XSS: comment text is rendered WITHOUT escaping,
+            # a second stored-XSS sink distinct from the writers-chat one.
+            out += (
+                "<div class='msg'>"
+                f"<span class='who'>{html.escape(c['name'])}</span> "
+                f"<small>{html.escape(c['time'])}</small><br>{c['text']}</div>"
+            )
+        return out or "<p style='color:#777'>אין תגובות עדיין.</p>"
+
+    def route_comments_get(self, qs):
+        try:
+            aid = int(qs.get("articleId", ["0"])[0])
+        except ValueError:
+            return self._json(400, {"error": "bad articleId"})
+        # [VULN-11 pairs with VULN-02] no check that the article is published,
+        # so comments on the embargoed draft (id 1999) are listable too.
+        return self._json(200, {"articleId": aid,
+                                "comments": seed.COMMENTS.get(aid, [])})
+
+    def route_comments_post(self, form):
+        try:
+            aid = int(form.get("articleId", "0"))
+        except ValueError:
+            return self._json(400, {"error": "bad articleId"})
+        name = (form.get("name", "אנונימי/ת")[:40] or "אנונימי/ת")
+        text = form.get("text", "")
+        # [VULN-11] stored XSS: comment body stored raw, later rendered unescaped.
+        # No auth, no article-published check -> also lets you seed comments onto
+        # unpublished drafts (IDOR).
+        seed.COMMENTS.setdefault(aid, []).append({
+            "id": 7000 + sum(len(v) for v in seed.COMMENTS.values()),
+            "name": name,
+            "time": "now",
+            "text": text,  # <-- not sanitized
+        })
+        return self._send(302, "", extra={"Location": f"/article?id={aid}"})
 
     def route_ajaxpage(self, qs):
         # Mimics the real portal's `/AjaxPage?jspName=...` feed loader.
@@ -334,6 +438,9 @@ class Handler(BaseHTTPRequestHandler):
         if name == "hb-loader.js":
             return self._send(200, OBFUSCATED_JS,
                               ctype="application/javascript; charset=utf-8")
+        if name == "vad-hb.js":
+            return self._send(200, VAD_OBFUSCATED_JS,
+                              ctype="application/javascript; charset=utf-8")
         if name == "style.css":
             return self._send(200, "/* see inline PAGE_CSS */",
                               ctype="text/css; charset=utf-8")
@@ -353,6 +460,35 @@ _0x3(++_0x2);}(_0x3f21,0x1a));
 var _0x9a=function(_0x1,_0x2){_0x1=_0x1-0x0;return _0x3f21[_0x1];};
 (function(){var name=_0x9a('0x2')+' '+_0x9a('0x1');
 console[_0x9a('0x6')]('['+name+'] '+_0x9a('0x0')+' for '+_0x9a('0x4')+' '+_0x9a('0x5'));})();
+"""
+
+
+# --------------------------------------------------------------------------
+# The ARTICLE page's obfuscated "VAD / header-bidding" loader, served at
+# /static/vad-hb.js. It uses the exact same string-array-rotation trick as the
+# real page's `var _0x2050=[...]` snippet (generic branding: cdn.valuad.lab,
+# publisher n-lab). Same deobfuscate.py decodes it. When resolved it just shows
+# a googletag/header-bidding script injector — see attacks/vad-hb-snippet.js.
+# --------------------------------------------------------------------------
+VAD_OBFUSCATED_JS = r"""
+var _0x2050=['type','head','document','createElement','script','src','//cdn.valuad.lab/hb/loader.js','setAttribute','data-publisher','n-lab','appendChild','text/javascript','_vadHb','push','now','random','googletag','cmd','pubads','disableInitialLoad'];
+(function(_0xa,_0xb){var _0xc=function(_0xd){while(--_0xd){_0xa['push'](_0xa['shift']());}};_0xc(++_0xb);}(_0x2050,0xb));
+var _0x48=function(_0xa,_0xb){_0xa=_0xa-0x0;return _0x2050[_0xa];};
+(function(){
+  var _d = window[_0x48('0xb')];
+  var _s = _d[_0x48('0xc')](_0x48('0xd'));
+  _s[_0x48('0x9')] = _0x48('0x0');
+  _s[_0x48('0xe')] = _0x48('0xf');
+  _s[_0x48('0x10')](_0x48('0x11'), _0x48('0x12'));
+  _d[_0x48('0xa')][_0x48('0x13')](_s);
+  window[_0x48('0x1')] = window[_0x48('0x1')] || [];
+  window[_0x48('0x1')][_0x48('0x2')]({ ts: Date[_0x48('0x3')](), rnd: Math[_0x48('0x4')]() });
+  (window[_0x48('0x5')] = window[_0x48('0x5')] || {})[_0x48('0x6')] =
+      window[_0x48('0x5')][_0x48('0x6')] || [];
+  window[_0x48('0x5')][_0x48('0x6')][_0x48('0x2')](function(){
+      window[_0x48('0x5')][_0x48('0x7')]()[_0x48('0x8')]();
+  });
+})();
 """
 
 

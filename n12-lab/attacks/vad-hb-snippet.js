@@ -1,0 +1,26 @@
+// Article-page "VAD / header-bidding" loader — string-array-rotation obfuscation.
+// This is the SAME pattern as the real page's `var _0x2050=[...]` snippet, with
+// lab-generic branding (cdn.valuad.lab / publisher n-lab). It is also served
+// live by the lab at /static/vad-hb.js.
+//
+// Decode it with the included generic decoder:
+//     python3 deobfuscate.py vad-hb-snippet.js
+//     curl -s http://127.0.0.1:8099/static/vad-hb.js | python3 deobfuscate.py -
+var _0x2050=['type','head','document','createElement','script','src','//cdn.valuad.lab/hb/loader.js','setAttribute','data-publisher','n-lab','appendChild','text/javascript','_vadHb','push','now','random','googletag','cmd','pubads','disableInitialLoad'];
+(function(_0xa,_0xb){var _0xc=function(_0xd){while(--_0xd){_0xa['push'](_0xa['shift']());}};_0xc(++_0xb);}(_0x2050,0xb));
+var _0x48=function(_0xa,_0xb){_0xa=_0xa-0x0;return _0x2050[_0xa];};
+(function(){
+  var _d = window[_0x48('0xb')];
+  var _s = _d[_0x48('0xc')](_0x48('0xd'));
+  _s[_0x48('0x9')] = _0x48('0x0');
+  _s[_0x48('0xe')] = _0x48('0xf');
+  _s[_0x48('0x10')](_0x48('0x11'), _0x48('0x12'));
+  _d[_0x48('0xa')][_0x48('0x13')](_s);
+  window[_0x48('0x1')] = window[_0x48('0x1')] || [];
+  window[_0x48('0x1')][_0x48('0x2')]({ ts: Date[_0x48('0x3')](), rnd: Math[_0x48('0x4')]() });
+  (window[_0x48('0x5')] = window[_0x48('0x5')] || {})[_0x48('0x6')] =
+      window[_0x48('0x5')][_0x48('0x6')] || [];
+  window[_0x48('0x5')][_0x48('0x6')][_0x48('0x2')](function(){
+      window[_0x48('0x5')][_0x48('0x7')]()[_0x48('0x8')]();
+  });
+})();
