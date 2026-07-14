@@ -6,8 +6,10 @@ exploit chains. Everything below was run live against a local instance
 (`http://127.0.0.1:8110` during testing; default `:8099`). Target is the
 self-owned lab only — see [`../SCOPE.md`](../SCOPE.md).
 
-The four highest-impact items here are now regression-locked in
-[`run_all.py`](run_all.py) (`VULN-03b`, `VULN-04b`, `VULN-16`, `VULN-17`).
+The highest-impact machine-checkable items are regression-locked in
+[`run_all.py`](run_all.py) (`VULN-03b`, `VULN-04b`, `VULN-04c`, `VULN-16`,
+`VULN-17`); the full chain (G) is demonstrated by
+[`exploit_chain_G.py`](exploit_chain_G.py).
 
 ## Findings summary
 
@@ -19,8 +21,11 @@ The four highest-impact items here are now regression-locked in
 | D | SSRF port-scan oracle (verbose errors) | Medium | maps internal services |
 | E | CSRF on all state-changing POSTs | **High** | wormable with stored XSS |
 | F | Admin creds in URL → leak to access logs | Medium | plus history/Referer |
-| G | Chain: CSRF → stored XSS → LFI exfil | **Critical** | full read-and-exfil |
+| G | Chain: CSRF → stored XSS → LFI exfil | **Critical** | proven end-to-end in a real browser (`exploit_chain_G.py`) |
 | H | Unbounded stored input | Low | memory-exhaustion surface |
+| I | Redirect-based SSRF bypass | **High** | defeats a naive host allow-list |
+| J | Extra SSRF schemes (`data:`, `file:`) | Medium | + metadata-service path on cloud |
+| K | Latent race on shared stores | Low | real bug, GIL-masked — not exploited |
 
 ---
 
@@ -115,6 +120,61 @@ curl -s -X POST 'http://127.0.0.1:8099/api/chat' \
 ```
 **Fix:** cap body size (`Content-Length` limit), cap stored item count/length,
 persist to a bounded store.
+
+---
+
+## Round 2 — going deeper
+
+### G proven end-to-end in a real browser
+`exploit_chain_G.py` weaponises finding G against a fresh local instance: it
+plants the stored-XSS comment via a **forged cross-origin POST** (the CSRF),
+then drives a **real headless Chromium** to the article page. The browser
+executes the stored script, which reads `/etc/passwd` through the **LFI** and
+beacons it (base64, via `<img>`) to an attacker "collector" the script runs.
+Captured output confirms full server-file exfiltration from the browser:
+```
+[+] CSRF POST planted the XSS comment (HTTP 200, cross-origin, no token)
+[*] launching headless Chromium at the article page ...
+[!!] EXFILTRATION SUCCEEDED — attacker collector received /etc/passwd
+   root:x:0:0:root:/root:/bin/bash
+   daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+   ...
+```
+Run it: `python3 attacks/exploit_chain_G.py` (self-contained; local only).
+This is the difference between "the payload persists" and "the payload steals
+files from visitors" — the chain, demonstrated.
+
+### I — Redirect-based SSRF bypass (defeats a naive host allow-list)
+`urlopen` transparently **follows redirects**, so validating only the *initial*
+URL's host is insufficient — an attacker-controlled external host can `302` to
+an internal target:
+```
+attacker :8123  ->  302 Location: http://127.0.0.1:<lab>/config/version
+proxy?url=http://attacker:8123/  ->  returns the internal config (bypass)
+```
+Confirmed reaching internal `/config/version` this way. **Fix:** disable
+redirects (`urllib` custom `HTTPRedirectHandler` that blocks them), or
+re-validate the host/scheme on **every** hop; combine with the scheme
+allow-list from B.
+
+### J — Extra SSRF schemes
+`urlopen` also honours `data:` (`data:text/plain,…` is returned verbatim) in
+addition to `file:` (B). `ftp:` returns 502 here (no server). On a cloud host
+the same SSRF would reach the link-local metadata service
+(`http://169.254.169.254/…`) — not reachable from this lab, but the same code
+path. **Fix:** strict scheme allow-list (`http`/`https` only) + block
+link-local/private ranges + no redirects.
+
+### K — Latent race condition (reported honestly, low)
+`route_chat_post` / `route_comments_post` do an unlocked read-modify-write of
+shared state (`id = base + len(store)` then insert/append) under
+`ThreadingHTTPServer`. This is a real data race *in principle*, but under
+CPython's GIL the window is tiny: hammering with 400+ concurrent writes
+produced **zero** duplicate ids across repeated runs, and no crashes on
+concurrent read+write. Flagged as a latent correctness bug, **not** a working
+exploit. **Fix:** guard shared state with a `threading.Lock`, or use a real
+datastore that allocates ids atomically. (Don't rely on the GIL for
+correctness — a non-CPython runtime or slower per-op work would widen the gap.)
 
 ---
 

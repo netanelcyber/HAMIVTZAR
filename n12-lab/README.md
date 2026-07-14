@@ -63,16 +63,24 @@ Each weakness is tagged `# [VULN-xx]` in [`app.py`](app.py).
   `127.0.0.1:8099`.
 - **Go past the tagged bugs** — [`attacks/RED_TEAM.md`](attacks/RED_TEAM.md) is a
   live offensive pass that found higher-impact variants and chains beyond the 15
-  tags: absolute-path LFI, `file://` SSRF, CRLF response-splitting, CSRF, and a
-  CSRF→XSS→LFI exfil chain. The top four are regression-locked in `run_all.py`.
+  tags: absolute-path LFI, `file://` + `data:` SSRF, redirect-based SSRF bypass,
+  CRLF response-splitting, CSRF, a latent race, and a CSRF→XSS→LFI exfil chain.
+  The machine-checkable ones are regression-locked in `run_all.py`.
+- **Watch the exfil chain fire** — [`attacks/exploit_chain_G.py`](attacks/exploit_chain_G.py)
+  weaponises the CSRF→stored-XSS→LFI chain end-to-end: it plants the payload via
+  a forged cross-origin POST and drives a real headless Chromium so the stored
+  XSS executes, reads a local file, and beacons it to an attacker collector.
+  ```bash
+  python3 attacks/exploit_chain_G.py   # -> EXFILTRATION SUCCEEDED (/etc/passwd)
+  ```
 - **Walk every finding automatically** — [`attacks/run_all.py`](attacks/run_all.py)
   is a tiny stdlib-only scanner for this one target: it exercises VULN-01..17
-  (incl. the red-team findings 03b/04b/16/17) and both deobfuscation challenges,
-  printing PASS/FAIL with evidence. It refuses any non-local host unless you set
-  `LAB_ALLOW_REMOTE=1`.
+  (incl. the red-team findings 03b/04b/04c/16/17) and both deobfuscation
+  challenges, printing PASS/FAIL with evidence. It refuses any non-local host
+  unless you set `LAB_ALLOW_REMOTE=1`.
   ```bash
   python3 app.py &                 # start the lab
-  python3 attacks/run_all.py       # -> 22/22 checks passed
+  python3 attacks/run_all.py       # -> 23/23 checks passed
   ```
 - **Drill XSS in every context** — [`attacks/XSS_LAB.md`](attacks/XSS_LAB.md) walks
   the HTML-text, HTML-attribute, JS-string, filter-bypass, and DOM-based contexts
@@ -104,7 +112,8 @@ n12-lab/
 │   ├── SCRIPT_ANALYSIS.md     # JS deobfuscation writeup
 │   ├── deobfuscate.py         # string-array-rotation decoder
 │   ├── vad-hb-snippet.js      # article-page VAD loader (RE sample)
-│   └── run_all.py             # automated finding-walker (all VULNs + RE)
+│   ├── run_all.py             # automated finding-walker (all VULNs + RE)
+│   └── exploit_chain_G.py     # end-to-end CSRF->XSS->LFI exfil PoC (real browser)
 ├── SCOPE.md                   # rules of engagement
 ├── Dockerfile
 └── docker-compose.yml
