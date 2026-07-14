@@ -222,6 +222,9 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     def do_POST(self):
+        # [VULN-17] CSRF: none of the state-changing POST endpoints below check
+        # a CSRF token, Origin, or Referer, so any site can forge chat/comment
+        # writes in a logged-in victim's browser (wormable with the stored XSS).
         parsed = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", "0") or "0")
         raw = self.rfile.read(length).decode("utf-8", "replace")
@@ -460,6 +463,9 @@ class Handler(BaseHTTPRequestHandler):
         name = qs.get("jspName", ["weather.json"])[0]
         # [VULN-03] path traversal / LFI: `jspName` is joined to FEEDS_DIR with
         # no sanitization, so `../../etc/passwd` (or ../feeds/SECRET*) escapes.
+        # NOTE (red-team): even stronger than it looks — os.path.join(base, ABS)
+        # DISCARDS `base`, so jspName=/etc/passwd is a direct arbitrary-file read
+        # with no `../` at all, including this app's own source.
         target = os.path.join(FEEDS_DIR, name)
         try:
             with open(target, "rb") as fh:
@@ -475,6 +481,9 @@ class Handler(BaseHTTPRequestHandler):
         if not url:
             return self._json(400, {"error": "missing url"})
         # [VULN-04] SSRF: the server fetches an arbitrary attacker-supplied URL.
+        # NOTE (red-team): urlopen also honours file:// -> a second arbitrary-read
+        # primitive (file:///etc/passwd). And the verbose error below is a
+        # port-scan oracle (Connection refused vs. a real body maps internal svc).
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "HaMivtzarLab-proxy"})
             with urllib.request.urlopen(req, timeout=4) as r:   # nosec - lab
@@ -487,6 +496,10 @@ class Handler(BaseHTTPRequestHandler):
         # Mimics the site's `?partner=`/mobile-redirect logic.
         dest = qs.get("url", [qs.get("partner", ["/"])[0]])[0]
         # [VULN-09] open redirect: no allow-list on the destination.
+        # [VULN-16] CRLF / HTTP response-header injection: `dest` is passed raw
+        # into the Location header, so a payload containing %0d%0a splits the
+        # response and injects arbitrary headers (e.g. Set-Cookie -> session
+        # fixation, or cache-poisoning). Far worse than a plain open redirect.
         return self._send(302, "", extra={"Location": dest})
 
     def route_version(self):

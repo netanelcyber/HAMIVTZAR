@@ -61,13 +61,18 @@ Each weakness is tagged `# [VULN-xx]` in [`app.py`](app.py).
 - **Find & exploit the bugs** — try first, then check
   [`attacks/SOLUTIONS.md`](attacks/SOLUTIONS.md). Point Burp/ZAP/ffuf/nikto at
   `127.0.0.1:8099`.
+- **Go past the tagged bugs** — [`attacks/RED_TEAM.md`](attacks/RED_TEAM.md) is a
+  live offensive pass that found higher-impact variants and chains beyond the 15
+  tags: absolute-path LFI, `file://` SSRF, CRLF response-splitting, CSRF, and a
+  CSRF→XSS→LFI exfil chain. The top four are regression-locked in `run_all.py`.
 - **Walk every finding automatically** — [`attacks/run_all.py`](attacks/run_all.py)
-  is a tiny stdlib-only scanner for this one target: it exercises VULN-01..15 and
-  both deobfuscation challenges and prints PASS/FAIL with evidence. It refuses any
-  non-local host unless you set `LAB_ALLOW_REMOTE=1`.
+  is a tiny stdlib-only scanner for this one target: it exercises VULN-01..17
+  (incl. the red-team findings 03b/04b/16/17) and both deobfuscation challenges,
+  printing PASS/FAIL with evidence. It refuses any non-local host unless you set
+  `LAB_ALLOW_REMOTE=1`.
   ```bash
   python3 app.py &                 # start the lab
-  python3 attacks/run_all.py       # -> 18/18 checks passed
+  python3 attacks/run_all.py       # -> 22/22 checks passed
   ```
 - **Drill XSS in every context** — [`attacks/XSS_LAB.md`](attacks/XSS_LAB.md) walks
   the HTML-text, HTML-attribute, JS-string, filter-bypass, and DOM-based contexts
@@ -94,6 +99,7 @@ n12-lab/
 │   └── SECRET_internal.json   # the LFI/path-traversal target
 ├── attacks/
 │   ├── SOLUTIONS.md           # findings walkthrough + fixes
+│   ├── RED_TEAM.md            # offensive pass: unintended bugs + chains
 │   ├── XSS_LAB.md             # XSS-by-context drills (payloads + fixes)
 │   ├── SCRIPT_ANALYSIS.md     # JS deobfuscation writeup
 │   ├── deobfuscate.py         # string-array-rotation decoder
