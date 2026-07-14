@@ -116,3 +116,7 @@ published articles with a real authz check; add CSP.
 - `ffuf` / `gobuster` for content discovery (`/admin`, `/.env`, `/config/version`).
 - `nikto` for a quick misconfig sweep.
 - Write your own small Python client (see `deobfuscate.py` for style).
+- Or just run [`run_all.py`](run_all.py) — it walks every finding above (plus both
+  deobfuscation challenges) and prints PASS/FAIL with evidence. It's a worked
+  example of the kind of throwaway, target-specific tooling you'd build during a
+  real authorized engagement.

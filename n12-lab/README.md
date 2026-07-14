@@ -60,6 +60,14 @@ Each weakness is tagged `# [VULN-xx]` in [`app.py`](app.py).
 - **Find & exploit the bugs** — try first, then check
   [`attacks/SOLUTIONS.md`](attacks/SOLUTIONS.md). Point Burp/ZAP/ffuf/nikto at
   `127.0.0.1:8099`.
+- **Walk every finding automatically** — [`attacks/run_all.py`](attacks/run_all.py)
+  is a tiny stdlib-only scanner for this one target: it exercises VULN-01..11 and
+  both deobfuscation challenges and prints PASS/FAIL with evidence. It refuses any
+  non-local host unless you set `LAB_ALLOW_REMOTE=1`.
+  ```bash
+  python3 app.py &                 # start the lab
+  python3 attacks/run_all.py       # -> 14/14 checks passed
+  ```
 - **Deobfuscate the scripts** — [`attacks/SCRIPT_ANALYSIS.md`](attacks/SCRIPT_ANALYSIS.md)
   explains the two common patterns (the `_0x…` string-array rotation and the
   `__webpack_modules__` service-worker loader). Run the included decoder:
@@ -84,7 +92,8 @@ n12-lab/
 │   ├── SOLUTIONS.md           # findings walkthrough + fixes
 │   ├── SCRIPT_ANALYSIS.md     # JS deobfuscation writeup
 │   ├── deobfuscate.py         # string-array-rotation decoder
-│   └── vad-hb-snippet.js      # article-page VAD loader (RE sample)
+│   ├── vad-hb-snippet.js      # article-page VAD loader (RE sample)
+│   └── run_all.py             # automated finding-walker (all VULNs + RE)
 ├── SCOPE.md                   # rules of engagement
 ├── Dockerfile
 └── docker-compose.yml
