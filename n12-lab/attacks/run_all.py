@@ -158,6 +158,34 @@ def run(base):
     check("VULN-11 comment IDOR (comment accepted on embargoed draft)", idor_ok,
           "comment stored/listed on draft 1999")
 
+    # VULN-12 attribute-context XSS (/profile) — break out of value="..."
+    payload = '" autofocus onfocus=alert(12) x="'
+    _, _, b = _req(base, "/profile?name=" + urllib.parse.quote(payload))
+    ok = 'onfocus=alert(12)' in b and 'value="" autofocus' in b
+    check("VULN-12 XSS in HTML attribute context (/profile)", ok,
+          "payload broke out of the quoted attribute value")
+
+    # VULN-13 JS-string-context XSS (/greet) — break out of var m='...'
+    payload = "';alert(13);//"
+    _, _, b = _req(base, "/greet?msg=" + urllib.parse.quote(payload))
+    ok = "var m='';alert(13);//'" in b
+    check("VULN-13 XSS in JavaScript string context (/greet)", ok,
+          "payload closed the JS string and injected code")
+
+    # VULN-14 naive-filter bypass (/filtered) — <script> stripped, <img> isn't
+    payload = "<img src=x onerror=alert(14)>"
+    _, _, b = _req(base, "/filtered?q=" + urllib.parse.quote(payload))
+    ok = payload in b
+    check("VULN-14 naive WAF bypass (/filtered, event-handler tag)", ok,
+          "event-handler tag survived the <script>-only filter")
+
+    # VULN-15 DOM-based XSS (/welcome) — verify the client-side sink is present
+    _, _, b = _req(base, "/welcome")
+    ok = "location.hash" in b and ".innerHTML" in b
+    check("VULN-15 DOM-based XSS sink present (/welcome, hash -> innerHTML)", ok,
+          "server ships an innerHTML sink fed by location.hash "
+          "(exploit: /welcome#<img src=x onerror=alert(15)>)")
+
     # RE-1 lobby header-bidding loader deobfuscates coherently
     _, _, js = _req(base, "/static/hb-loader.js")
     try:

@@ -98,6 +98,7 @@ def page(title, body):
         "<a href='/'>לובי</a>"
         "<a href='/article?id=1001'>כתבה</a>"
         "<a href='/newssearch?q=חדשות'>חיפוש</a>"
+        "<a href='/xss'>XSS playground</a>"
         "<a href='/AjaxPage?jspName=weather.json&type=weather'>מזג אוויר (feed)</a>"
         "<a href='/config/version'>version</a>"
         "<a href='/admin'>admin</a>"
@@ -184,6 +185,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, render_lobby())
         if path == "/newssearch":
             return self.route_search(qs)
+        if path == "/xss":
+            return self.route_xss_index()
+        if path == "/profile":
+            return self.route_profile(qs)
+        if path == "/greet":
+            return self.route_greet(qs)
+        if path == "/filtered":
+            return self.route_filtered(qs)
+        if path == "/welcome":
+            return self.route_welcome()
         if path == "/article":
             return self.route_article(qs)
         if path == "/AjaxPage":
@@ -236,6 +247,91 @@ class Handler(BaseHTTPRequestHandler):
             f"{rows}</section></main>"
         )
         return self._send(200, page("חיפוש", body))
+
+    # ---- XSS practice playground (multiple injection contexts) ----
+    def route_xss_index(self):
+        body = (
+            "<main><section><h2>XSS playground</h2>"
+            "<p>אותה פגיעות, הקשרים שונים — לכל אחד צריך payload אחר. "
+            "פתרונות ב-<code>attacks/XSS_LAB.md</code>.</p>"
+            "<ul>"
+            "<li><a href='/newssearch?q=test'>reflected — HTML text</a> "
+            "(VULN-01)</li>"
+            "<li><a href='/profile?name=guest'>profile — HTML attribute</a> "
+            "(VULN-12)</li>"
+            "<li><a href='/greet?msg=hi'>greet — JavaScript string</a> "
+            "(VULN-13)</li>"
+            "<li><a href='/filtered?q=test'>filtered — naive WAF bypass</a> "
+            "(VULN-14)</li>"
+            "<li><a href='/welcome'>welcome — DOM-based (#fragment)</a> "
+            "(VULN-15)</li>"
+            "<li>stored: <code>POST /api/chat</code> (VULN-05), "
+            "<code>POST /api/comments</code> (VULN-11)</li>"
+            "</ul></section></main>"
+        )
+        return self._send(200, page("xss playground", body))
+
+    def route_profile(self, qs):
+        name = qs.get("name", ["guest"])[0]
+        # [VULN-12] XSS in HTML ATTRIBUTE context: `name` is dropped inside a
+        # double-quoted attribute value without escaping quotes, so a payload
+        # like  " autofocus onfocus=alert(1) x="  breaks out of the attribute.
+        body = (
+            "<main><section><h2>הפרופיל שלי</h2>"
+            "<form action='/profile'>"
+            f"<input name='name' value=\"{name}\"> "  # <-- unescaped attribute
+            "<button>עדכן</button></form>"
+            f"<p>שלום, {html.escape(name)}!</p>"
+            "</section></main>"
+        )
+        return self._send(200, page("profile", body))
+
+    def route_greet(self, qs):
+        msg = qs.get("msg", ["hi"])[0]
+        # [VULN-13] XSS in JAVASCRIPT string context: `msg` is concatenated into
+        # an inline <script> as a single-quoted string with no escaping, so
+        #   ';alert(1);//   breaks out of the string and runs code.
+        body = (
+            "<main><section><h2>ברכה</h2>"
+            "<div id='out'></div>"
+            f"<script>var m='{msg}';"  # <-- unescaped into JS
+            "document.getElementById('out').textContent='msg: '+m;</script>"
+            "</section></main>"
+        )
+        return self._send(200, page("greet", body))
+
+    def route_filtered(self, qs):
+        q = qs.get("q", [""])[0]
+        # [VULN-14] naive blocklist filter: strips only the literal lowercase
+        # "<script" / "</script>". Trivially bypassed with a case variant
+        # (<ScRiPt>) or an event-handler tag (<img src=x onerror=alert(1)>).
+        filtered = q.replace("<script", "").replace("</script>", "")
+        body = (
+            "<main><section>"
+            f"<h2>חיפוש מסונן: {filtered}</h2>"  # <-- post-filter, still injectable
+            "<p style='color:#777'>ה-\"WAF\" הנאיבי מסיר רק "
+            "<code>&lt;script</code> באותיות קטנות.</p>"
+            "</section></main>"
+        )
+        return self._send(200, page("filtered", body))
+
+    def route_welcome(self):
+        # [VULN-15] DOM-based XSS: the URL fragment (location.hash) is written
+        # into the page via innerHTML entirely client-side. The server never
+        # sees the payload (it's after the '#'), so this is a pure client sink.
+        body = (
+            "<main><section><h2>ברוכים הבאים</h2>"
+            "<div id='banner'>טוען...</div>"
+            "<script>\n"
+            "  var frag = decodeURIComponent(location.hash.slice(1));\n"
+            "  // sink: innerHTML from the attacker-controlled fragment\n"
+            "  document.getElementById('banner').innerHTML = frag || 'שלום אורח';\n"
+            "</script>"
+            "<p style='color:#777'>נסו: <code>/welcome#&lt;img src=x "
+            "onerror=alert(1)&gt;</code></p>"
+            "</section></main>"
+        )
+        return self._send(200, page("welcome", body))
 
     def route_article(self, qs):
         try:

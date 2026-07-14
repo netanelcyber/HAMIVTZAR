@@ -40,6 +40,7 @@ docker compose up --build      # http://127.0.0.1:8099
 |------|--------|----------------------|
 | `/` | news lobby + writers chat | renders chat messages unescaped |
 | `/newssearch?q=` | site search | **reflected XSS** (VULN-01) |
+| `/xss` · `/profile` · `/greet` · `/filtered` · `/welcome` | XSS playground | **XSS: attribute / JS-string / filter-bypass / DOM** (VULN-12..15) |
 | `/article?id=` | full article page (body + ad slots + related + comments) | **IDOR** to unpublished drafts (VULN-02) |
 | `/AjaxPage?jspName=` | the `/AjaxPage?jspName=…` feed loader | **path traversal / LFI** (VULN-03) |
 | `/proxy/multivac?url=` | Outbrain-Multivac-style rec proxy | **SSRF** (VULN-04) |
@@ -68,6 +69,9 @@ Each weakness is tagged `# [VULN-xx]` in [`app.py`](app.py).
   python3 app.py &                 # start the lab
   python3 attacks/run_all.py       # -> 14/14 checks passed
   ```
+- **Drill XSS in every context** — [`attacks/XSS_LAB.md`](attacks/XSS_LAB.md) walks
+  the HTML-text, HTML-attribute, JS-string, filter-bypass, and DOM-based contexts
+  (VULN-01/12/13/14/15) with the right payload and fix for each. Start at `/xss`.
 - **Deobfuscate the scripts** — [`attacks/SCRIPT_ANALYSIS.md`](attacks/SCRIPT_ANALYSIS.md)
   explains the two common patterns (the `_0x…` string-array rotation and the
   `__webpack_modules__` service-worker loader). Run the included decoder:
@@ -90,6 +94,7 @@ n12-lab/
 │   └── SECRET_internal.json   # the LFI/path-traversal target
 ├── attacks/
 │   ├── SOLUTIONS.md           # findings walkthrough + fixes
+│   ├── XSS_LAB.md             # XSS-by-context drills (payloads + fixes)
 │   ├── SCRIPT_ANALYSIS.md     # JS deobfuscation writeup
 │   ├── deobfuscate.py         # string-array-rotation decoder
 │   ├── vad-hb-snippet.js      # article-page VAD loader (RE sample)

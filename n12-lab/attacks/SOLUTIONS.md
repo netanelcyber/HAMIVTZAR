@@ -108,6 +108,12 @@ curl -s 'http://127.0.0.1:8099/api/comments?articleId=1999'
 **Fix:** escape comment bodies on output (and sanitize on input); tie comments to
 published articles with a real authz check; add CSP.
 
+## VULN-12..15 — XSS in other contexts
+The lab has a dedicated XSS playground at `/xss` covering the HTML-attribute
+(`/profile`), JavaScript-string (`/greet`), naive-filter-bypass (`/filtered`),
+and DOM-based (`/welcome#…`) contexts. Payloads, per-context reasoning, and fixes
+are in **[`XSS_LAB.md`](XSS_LAB.md)**.
+
 ---
 
 ## Suggested tooling to practise with (all against THIS lab only)
