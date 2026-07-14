@@ -226,6 +226,10 @@ class Handler(BaseHTTPRequestHandler):
         # a CSRF token, Origin, or Referer, so any site can forge chat/comment
         # writes in a logged-in victim's browser (wormable with the stored XSS).
         parsed = urllib.parse.urlparse(self.path)
+        # [VULN-18] latent request-smuggling surface: this trusts Content-Length
+        # and never honours `Transfer-Encoding: chunked` (RFC 7230 says TE wins).
+        # Standalone impact is limited (HTTP/1.0, connection closes), but behind
+        # a proxy that DOES decode chunked this is the classic CL.TE desync.
         length = int(self.headers.get("Content-Length", "0") or "0")
         raw = self.rfile.read(length).decode("utf-8", "replace")
         form = {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}

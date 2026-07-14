@@ -26,6 +26,7 @@ The highest-impact machine-checkable items are regression-locked in
 | I | Redirect-based SSRF bypass | **High** | defeats a naive host allow-list |
 | J | Extra SSRF schemes (`data:`, `file:`) | Medium | + metadata-service path on cloud |
 | K | Latent race on shared stores | Low | real bug, GIL-masked — not exploited |
+| L | `Transfer-Encoding: chunked` ignored (VULN-18) | Low* | CL.TE smuggling surface behind a proxy (*High) |
 
 ---
 
@@ -175,6 +176,43 @@ concurrent read+write. Flagged as a latent correctness bug, **not** a working
 exploit. **Fix:** guard shared state with a `threading.Lock`, or use a real
 datastore that allocates ids atomically. (Don't rely on the GIL for
 correctness — a non-CPython runtime or slower per-op work would widen the gap.)
+
+---
+
+## Round 3 — more vectors (one hit, several ruled out)
+
+### L — `Transfer-Encoding: chunked` ignored (VULN-18, CL.TE desync surface)
+`do_POST` reads `Content-Length` and never honours `Transfer-Encoding: chunked`
+(RFC 7230 requires TE to take precedence). A chunked POST is accepted (`302`)
+but its body is read as **zero bytes** — the payload is silently dropped:
+```
+POST /api/chat HTTP/1.1
+Transfer-Encoding: chunked
+...
+1e
+reporter=chunkbot&text=SMUGGLED
+0
+```
+→ server returns 302, `SMUGGLED` is **not** stored (body ignored). Standalone
+impact is limited because the app speaks HTTP/1.0 and closes the connection, so
+leftover bytes are discarded — but if fronted by a proxy that *does* decode
+chunked and forwards raw bytes, this is the classic **CL.TE request smuggling**
+desync. **Fix:** reject requests that carry both `Content-Length` and
+`Transfer-Encoding`, or implement chunked decoding; run behind a proxy that
+normalises framing. Flagged **Low** standalone / **High** behind a mismatched
+proxy.
+
+### Ruled out (negative results — good to record)
+| Vector tried | Result | Why |
+|--------------|--------|-----|
+| ReDoS in `deobfuscate.py` array regex | **safe** | non-overlapping alternation `(?:\\.|[^'\\])*`; 60k-char pathological input parsed in ~0 ms (linear) |
+| SSRF via `gopher:` / `dict:` / `redis:` | **not reachable** | `urllib` registers no handler → `unknown url type`; the redis/memcached SSRF pivot is unavailable |
+| Timing oracle on admin password compare | **not usable** | over loopback the per-char `==` difference (ns) is swamped by GIL/threading/network noise; trimmed-mean deltas were non-monotonic |
+
+### Noted DoS surfaces (not exercised)
+- `ThreadingHTTPServer` spawns a thread per connection with no cap → slowloris /
+  thread-exhaustion. Not run (no DoS against the host), noted for completeness.
+- Unbounded stored input (finding H) is the memory-exhaustion counterpart.
 
 ---
 
