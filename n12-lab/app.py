@@ -217,6 +217,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.route_static(path)
         return self._send(404, page("404", "<main><section>404 — לא נמצא</section></main>"))
 
+    # HEAD mirrors GET routing; _send() suppresses the body when command==HEAD,
+    # so scanners that probe with HEAD get real status codes and headers.
+    do_HEAD = do_GET
+
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", "0") or "0")

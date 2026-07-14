@@ -62,12 +62,12 @@ Each weakness is tagged `# [VULN-xx]` in [`app.py`](app.py).
   [`attacks/SOLUTIONS.md`](attacks/SOLUTIONS.md). Point Burp/ZAP/ffuf/nikto at
   `127.0.0.1:8099`.
 - **Walk every finding automatically** — [`attacks/run_all.py`](attacks/run_all.py)
-  is a tiny stdlib-only scanner for this one target: it exercises VULN-01..11 and
+  is a tiny stdlib-only scanner for this one target: it exercises VULN-01..15 and
   both deobfuscation challenges and prints PASS/FAIL with evidence. It refuses any
   non-local host unless you set `LAB_ALLOW_REMOTE=1`.
   ```bash
   python3 app.py &                 # start the lab
-  python3 attacks/run_all.py       # -> 14/14 checks passed
+  python3 attacks/run_all.py       # -> 18/18 checks passed
   ```
 - **Drill XSS in every context** — [`attacks/XSS_LAB.md`](attacks/XSS_LAB.md) walks
   the HTML-text, HTML-attribute, JS-string, filter-bypass, and DOM-based contexts
