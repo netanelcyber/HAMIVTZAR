@@ -1,0 +1,13 @@
+// Scoped under the container to reach specificity (0,2,0), matching the
+// Activate button's rule. A bare `--button` selector (0,1,0) only ties
+// @wordpress/ui's runtime-injected button reset and loses on source order.
+.jp-license-activation-screen-success-info {
+
+	.jp-license-activation-screen-success-info--button {
+		font-weight: var(--wpds-typography-font-weight-medium);
+		font-size: var(--wpds-typography-font-size-lg);
+		width: auto;
+		padding-inline: var(--wpds-dimension-padding-3xl);
+		padding-block: var(--wpds-dimension-padding-lg);
+	}
+}

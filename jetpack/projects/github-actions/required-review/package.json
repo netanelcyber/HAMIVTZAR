@@ -1,0 +1,25 @@
+{
+	"private": true,
+	"description": "Check that a Pull Request has reviews from required teams.",
+	"license": "GPL-2.0-or-later",
+	"author": "Automattic",
+	"type": "module",
+	"main": "index.js",
+	"scripts": {
+		"build": "tsdown",
+		"test": "NODE_OPTIONS=--experimental-vm-modules jest --config=tests/jest.config.js --verbose",
+		"test-coverage": "pnpm run test --coverage"
+	},
+	"dependencies": {
+		"@actions/core": "3.0.1",
+		"@actions/github": "9.1.1",
+		"error": "10.4.0",
+		"js-yaml": "4.2.0",
+		"picomatch": "4.0.4"
+	},
+	"devDependencies": {
+		"jest": "30.4.2",
+		"rollup-plugin-license": "3.7.1",
+		"tsdown": "0.22.2"
+	}
+}
