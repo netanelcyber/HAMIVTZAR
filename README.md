@@ -151,7 +151,11 @@ security_classifier/              Defensive static + optional dynamic classifier
   classify.py / explain.py          Score a file; natural-language summary of the finding
 scripts/fetch_benign_corpus.py    Clones legitimate SDKs for classifier training data
 scripts/sandboxed_trace.sh        Template: collect a runtime trace on YOUR isolated sandbox
-tests/                            Offline tests for ingestion, retrieval, backends, and the classifier
+pacs_iso27799_audit/              ISO 27799 compliance checklist scorer for PACS/DICOM configs (no network access)
+  controls.py                       Control catalog across the 14 ISO 27799 domains
+  audit.py                          Scores a config JSON against the catalog; CLI + Markdown report
+  sample_config.json                Fictional/illustrative demo config only -- not real data
+tests/                            Offline tests for ingestion, retrieval, backends, the classifier, and the audit toolkit
 ```
 
 ## How it works
@@ -268,6 +272,36 @@ trace is supplied, `--explain` treats observed behavior (an actual outbound
 connection, an actual write to an autostart location) as stronger evidence
 than static structure alone.
 
+## PACS ISO 27799 compliance audit toolkit
+
+`pacs_iso27799_audit/` is a **documentation/config checklist scorer** for
+PACS/DICOM imaging environments, organized around the 14 control domains
+ISO 27799 uses to apply ISO/IEC 27002 to health information (access control,
+cryptography, physical security, operations, communications, supplier
+relationships, business continuity, and more). See
+`pacs_iso27799_audit/README.md` for full scope, but the essential points:
+
+- It **never makes a network connection** — it scores a JSON file you (or an
+  authorized assessor) fill in describing a deployment's configuration.
+  It does not scan, probe, or connect to any real or simulated system.
+- `sample_config.json` is **entirely fictional demo data** — not real
+  information about any specific hospital's actual system.
+- It is a first-pass checklist, not a certification, and not a substitute
+  for a qualified assessor working from the licensed standard.
+
+```bash
+python -m pacs_iso27799_audit.audit --config pacs_iso27799_audit/sample_config.json
+python -m pacs_iso27799_audit.audit --config pacs_iso27799_audit/sample_config.json --output report.md
+python -m pacs_iso27799_audit.audit --list-controls
+```
+
+This project intentionally does not include active network reconnaissance
+or exploitation tooling aimed at any real, named production system without
+on-file written authorization from that system's owner (the same bar as
+`pentest-milatova/scope.md`). See "On penetration testing" in
+`pacs_iso27799_audit/README.md` for the reasoning and the safe alternative
+(a local, disposable DICOM server as a rehearsal target).
+
 ## Tests
 
 ```bash
@@ -276,7 +310,8 @@ python -m unittest discover -s tests -v
 
 Covers tokenization, chunking, BM25 ranking, index save/load round-tripping,
 the extractive backend, backend resolution (including that `auto` never
-selects the online Claude backend), and the security classifier's feature
-extraction / dataset assembly / training pipeline. Runs fully offline; the two
+selects the online Claude backend), the security classifier's feature
+extraction / dataset assembly / training pipeline, and the PACS ISO 27799
+audit toolkit's control catalog and scoring logic. Runs fully offline; the two
 end-to-end training tests skip automatically if `scikit-learn`/`joblib` aren't
 installed.
