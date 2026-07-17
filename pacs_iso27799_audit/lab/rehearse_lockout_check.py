@@ -6,6 +6,11 @@ This script hard-refuses to target anything other than 127.0.0.1/localhost.
 That is not configurable, on purpose: it is a rehearsal client for
 ``mock_patient_portal.py``, not a general-purpose credential-guessing tool.
 
+If the server has postback tokens enabled (the default), each attempt first
+does a GET /login to fetch a fresh __VIEWSTATE/__EVENTVALIDATION pair, then
+includes it in the POST -- mirroring the ASP.NET WebForms postback pattern
+the real class of app this rehearses uses.
+
 Usage (in one terminal):
     python -m pacs_iso27799_audit.lab.mock_patient_portal --no-rate-limit
 
@@ -27,7 +32,14 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlencode
 
-from .mock_patient_portal import CODE_SPACE, DEMO_DOB, FIELD_CODE, FIELD_DOB
+from .mock_patient_portal import (
+    CODE_SPACE,
+    DEMO_DOB,
+    FIELD_CODE,
+    FIELD_DOB,
+    FIELD_EVENTVALIDATION,
+    FIELD_VIEWSTATE,
+)
 
 _ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
 
@@ -41,10 +53,19 @@ def _require_loopback(host: str) -> None:
         )
 
 
-def _attempt(url: str, dob: str, code: str) -> tuple:
-    body = urlencode({FIELD_DOB: dob, FIELD_CODE: code}).encode("utf-8")
+def _fetch_token(base_url: str) -> dict:
+    with urllib.request.urlopen(f"{base_url}/login", timeout=5) as resp:
+        return json.loads(resp.read())
+
+
+def _attempt(base_url: str, dob: str, code: str) -> tuple:
+    token = _fetch_token(base_url)
+    form = {FIELD_DOB: dob, FIELD_CODE: code}
+    form.update(token)  # no-op if the server has postback tokens disabled (token == {})
+
+    body = urlencode(form).encode("utf-8")
     req = urllib.request.Request(
-        url, data=body,
+        f"{base_url}/instant-access", data=body,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",
     )
@@ -64,15 +85,15 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     _require_loopback(args.host)
-    url = f"http://{args.host}:{args.port}/instant-access"
+    base_url = f"http://{args.host}:{args.port}"
 
     start = time.monotonic()
     for attempt in range(1, args.max_attempts + 1):
         code = f"{attempt - 1:03d}"
         try:
-            status, payload = _attempt(url, args.dob, code)
+            status, payload = _attempt(base_url, args.dob, code)
         except (urllib.error.URLError, ConnectionError) as e:
-            print(f"Could not reach {url}: {e}. Is mock_patient_portal.py running?")
+            print(f"Could not reach {base_url}: {e}. Is mock_patient_portal.py running?")
             return 1
 
         if status == 200:
@@ -88,6 +109,12 @@ def main(argv=None) -> int:
             print("Rate limiting/lockout is doing its job -- brute force did not "
                   "reach the correct code in the allotted attempts.")
             return 0
+
+        if status == 400:
+            print(f"Postback token rejected on attempt {attempt}: {payload}. "
+                  "This shouldn't happen with a fresh token per attempt -- check "
+                  "server/client are using the same --postback-tokens setting.")
+            return 1
 
     print(f"Exhausted {args.max_attempts} attempts without success or lockout.")
     return 1

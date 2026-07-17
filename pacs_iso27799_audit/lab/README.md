@@ -56,6 +56,27 @@ This time it should get locked out well before exhausting the code space —
 demonstrating that the control, when present, actually stops the attack
 class it targets.
 
+## Postback tokens (ASP.NET-style)
+
+This class of app is commonly built on ASP.NET WebForms, which uses a
+postback pattern: a GET returns a `__VIEWSTATE`/`__EVENTVALIDATION` pair that
+the following POST must include. The lab models the *operationally relevant
+behavior* of that (a short-lived, single-use token pair issued by `GET
+/login` and required by `POST /instant-access`) — not a reimplementation of
+ASP.NET's actual ViewState/EventValidation algorithm (which MACs serialized
+page state against a machine key). It's on by default; `rehearse_lockout_check.py`
+already does the GET before every attempt. Turn it off on both ends to see the
+simpler flow:
+
+```bash
+python -m pacs_iso27799_audit.lab.mock_patient_portal --no-postback-tokens
+```
+
+The practical lesson: this kind of stateful, single-use token slows down
+*naive* brute-force scripts (each guess now costs two requests instead of
+one) but does not stop a script written to handle it, same as here — it's a
+mild speed bump, not a substitute for AC-6/AC-7's rate limiting/lockout.
+
 ## Mapping back to the audit toolkit
 
 Once you've rehearsed the technique here, the corresponding entries in
