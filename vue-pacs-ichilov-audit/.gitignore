@@ -1,5 +1,9 @@
 # Real deployment data and generated reports are sensitive -- never commit them.
+# (Also covers assumed/industry-baseline configs generated in lieu of real
+# data -- same handling, to avoid any file here being mistaken for verified
+# fact about a real deployment.)
 real_config*.json
+assumed_config*.json
 real_report*.md
 *_report.md
 __pycache__/
