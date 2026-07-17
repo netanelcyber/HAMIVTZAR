@@ -186,6 +186,47 @@ CONTROLS: List[Control] = [
                     "provider or PACS auth module.",
     ),
     Control(
+        id="AC-6", domain=9,
+        title="Rate limiting / lockout on patient self-service login",
+        description="A patient-facing self-service login path (e.g. an 'instant "
+                    "access' flow authenticating with something like date of birth "
+                    "plus a short access code, rather than a full account password) "
+                    "enforces rate limiting and temporary lockout after repeated "
+                    "failed attempts, so it cannot be enumerated or brute-forced.",
+        check_type="automated", severity="high",
+        config_path="access_control.instant_access_rate_limited", operator="truthy",
+        expected=True,
+        remediation="Add rate limiting and progressive/temporary lockout (plus a "
+                    "CAPTCHA or equivalent bot-mitigation) to any patient "
+                    "self-service login path that uses low-entropy or partially "
+                    "guessable identifiers.",
+    ),
+    Control(
+        id="AC-7", domain=9,
+        title="Lockout threshold for patient self-service login",
+        description="The failed-attempt threshold before a patient self-service "
+                    "login is temporarily locked is low enough to make brute-force "
+                    "impractical.",
+        check_type="automated", severity="medium",
+        config_path="access_control.instant_access_lockout_threshold", operator="le",
+        expected=5,
+        remediation="Lower the failed-attempt threshold and add an increasing "
+                    "backoff/lockout window rather than a fixed short delay.",
+    ),
+    Control(
+        id="AC-8", domain=9,
+        title="Access-code entropy and expiry for patient self-service login",
+        description="Any secondary code used in a patient self-service login "
+                    "(access code, one-time link, etc.) is high-entropy, single-use "
+                    "or short-lived, and not derivable from information that is "
+                    "otherwise public or easily guessable about the patient.",
+        check_type="manual", severity="high",
+        remediation="Review how the access code is generated and delivered; replace "
+                    "short numeric codes with longer random tokens or one-time links "
+                    "with a short expiry, delivered out-of-band (e.g. SMS/email the "
+                    "patient already controls).",
+    ),
+    Control(
         id="CR-1", domain=10,
         title="Encryption of DICOM traffic in transit",
         description="DICOM associations and web/API traffic to and from the PACS are "
@@ -254,6 +295,20 @@ CONTROLS: List[Control] = [
         config_path="operations.os_patch_days_behind", operator="le", expected=30,
         remediation="Establish a patch cadence and reduce the gap between vendor "
                     "release and deployment.",
+    ),
+    Control(
+        id="OPS-5", domain=12,
+        title="Logging of patient self-service login attempts",
+        description="Both successful and failed attempts on the patient "
+                    "self-service login path are logged with enough detail "
+                    "(timestamp, source, target identifier) to detect an "
+                    "enumeration or brute-force attempt in progress.",
+        check_type="automated", severity="high",
+        config_path="operations.instant_access_attempts_logged", operator="truthy",
+        expected=True,
+        remediation="Log every self-service login attempt (not just successes) and "
+                    "alert on abnormal failure volume against a single identifier or "
+                    "from a single source.",
     ),
     Control(
         id="OPS-4", domain=12,

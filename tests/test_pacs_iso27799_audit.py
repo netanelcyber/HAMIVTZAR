@@ -82,6 +82,25 @@ class EvaluateControlTests(unittest.TestCase):
         result = evaluate_control(control, {"anything": True})
         self.assertEqual(result.status, "manual_review")
 
+    def test_instant_access_rate_limiting_control(self):
+        control = next(c for c in CONTROLS if c.id == "AC-6")
+        unprotected = evaluate_control(control, {"access_control": {"instant_access_rate_limited": False}})
+        protected = evaluate_control(control, {"access_control": {"instant_access_rate_limited": True}})
+        self.assertEqual(unprotected.status, "fail")
+        self.assertEqual(protected.status, "pass")
+
+    def test_instant_access_lockout_threshold_control(self):
+        control = next(c for c in CONTROLS if c.id == "AC-7")
+        loose = evaluate_control(control, {"access_control": {"instant_access_lockout_threshold": 20}})
+        tight = evaluate_control(control, {"access_control": {"instant_access_lockout_threshold": 3}})
+        self.assertEqual(loose.status, "fail")
+        self.assertEqual(tight.status, "pass")
+
+    def test_instant_access_attempt_logging_control(self):
+        control = next(c for c in CONTROLS if c.id == "OPS-5")
+        result = evaluate_control(control, {"operations": {"instant_access_attempts_logged": False}})
+        self.assertEqual(result.status, "fail")
+
 
 class RunAuditTests(unittest.TestCase):
     def test_run_audit_covers_every_control(self):

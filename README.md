@@ -155,7 +155,8 @@ pacs_iso27799_audit/              ISO 27799 compliance checklist scorer for PACS
   controls.py                       Control catalog across the 14 ISO 27799 domains
   audit.py                          Scores a config JSON against the catalog; CLI + Markdown report
   sample_config.json                Fictional/illustrative demo config only -- not real data
-tests/                            Offline tests for ingestion, retrieval, backends, the classifier, and the audit toolkit
+  lab/                               Local, loopback-only rehearsal target for the patient-self-service-login controls
+tests/                            Offline tests for ingestion, retrieval, backends, the classifier, and the audit toolkit + lab
 ```
 
 ## How it works
@@ -299,8 +300,13 @@ This project intentionally does not include active network reconnaissance
 or exploitation tooling aimed at any real, named production system without
 on-file written authorization from that system's owner (the same bar as
 `pentest-milatova/scope.md`). See "On penetration testing" in
-`pacs_iso27799_audit/README.md` for the reasoning and the safe alternative
-(a local, disposable DICOM server as a rehearsal target).
+`pacs_iso27799_audit/README.md` for the reasoning and the safe alternatives:
+a local, disposable DICOM server as a general rehearsal target, and
+`pacs_iso27799_audit/lab/` — a small local mock of a patient
+self-service login (date-of-birth + short access code) for rehearsing
+brute-force/lockout testing technique against something you run yourself,
+never a real system. Its rehearsal client hard-refuses any target other than
+`127.0.0.1`/`localhost`.
 
 ## Tests
 

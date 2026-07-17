@@ -44,7 +44,7 @@ should be filling this in), and point `--config` at your copy.
 
 ## Control catalog
 
-`controls.py` holds ~28 controls across the 14 ISO 27799 domains
+`controls.py` holds 37 controls across the 14 ISO 27799 domains
 (policy, organization, HR, asset management, access control, cryptography,
 physical security, operations, communications, acquisition/development,
 supplier relationships, incident management, business continuity,
@@ -54,6 +54,14 @@ testing, vendor remote-access controls, downtime/fallback procedures for
 patient safety, etc). Roughly half are `automated` (scored from a config
 key) and half are `manual` (always flagged for human review, with the
 question an assessor should ask).
+
+Controls **AC-6, AC-7, AC-8, OPS-5** specifically cover a *patient
+self-service* login path (e.g. an "instant access" flow authenticating with
+date of birth plus a short access code, rather than a full account
+password): rate limiting/lockout, a low lockout threshold, high-entropy/
+short-lived access codes, and logging of attempts. `lab/` has a local,
+loopback-only rehearsal target for exercising exactly this class of check —
+see below.
 
 ## Extending it
 
@@ -80,4 +88,7 @@ If the goal is to safely rehearse the *testing side* of ISO 27799 (network
 segmentation checks, DICOM TLS verification, access-control probing) without
 touching a real hospital, standing up a local, disposable DICOM server (e.g.
 [Orthanc](https://www.orthanc-server.com/) in a container) as a stand-in
-target is the safe way to build and practice that tooling.
+target is the safe way to build and practice that tooling. For the
+patient-self-service-login pattern specifically (AC-6/AC-7/AC-8/OPS-5), see
+`lab/` — a local mock you run yourself, with a rehearsal client that
+hard-refuses to target anything but `127.0.0.1`/`localhost`.
