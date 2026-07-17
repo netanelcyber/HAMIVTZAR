@@ -1,0 +1,6 @@
+# Real deployment data and generated reports are sensitive -- never commit them.
+real_config*.json
+real_report*.md
+*_report.md
+__pycache__/
+*.pyc
