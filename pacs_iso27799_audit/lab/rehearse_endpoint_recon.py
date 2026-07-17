@@ -48,6 +48,7 @@ CANDIDATE_PATHS = [
     "/backup.zip",
     "/config.json",
     "/api/admin/users",
+    "/static/access-check.wasm",
 ]
 
 _INTERPRETATION = {

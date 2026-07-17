@@ -22,6 +22,9 @@ yourself rather than reading the list below first):
   GET  /admin/debug         an undocumented endpoint that should not be
                              reachable without auth in a real deployment --
                              finding this is the point of including it
+  GET  /static/access-check.wasm   a client-side "looks valid" checksum
+                             module -- see wasm_challenge.py and lab/README.md's
+                             reverse-engineering exercise
 
 Since the real class of app this rehearses against is commonly built on
 ASP.NET WebForms, /login and /instant-access also model the operationally
@@ -195,6 +198,11 @@ def _handle_admin_debug(handler, state: _State) -> None:
     })
 
 
+def _handle_wasm_challenge(handler, state: _State) -> None:
+    from .wasm_challenge import build_access_check_module
+    handler._write_binary(200, "application/wasm", build_access_check_module())
+
+
 def _handle_patient_exams(handler, state: _State) -> None:
     if not state.check_session(_bearer_token(handler.headers)):
         handler._write_json(401, {"error": "unauthorized"})
@@ -243,6 +251,7 @@ _GET_ROUTES = {
     "/version": _handle_version,
     "/admin/debug": _handle_admin_debug,
     "/api/patient/exams": _handle_patient_exams,
+    "/static/access-check.wasm": _handle_wasm_challenge,
 }
 
 _POST_ROUTES = {
@@ -261,6 +270,13 @@ def _make_handler(state: _State):
             data = json.dumps(payload).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def _write_binary(self, status: int, content_type: str, data: bytes) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)

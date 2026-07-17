@@ -186,6 +186,13 @@ class RouteTests(unittest.TestCase):
         _, url = self._start_server()
         self.assertEqual(_request(url, "/nope")[0], 404)
 
+    def test_wasm_challenge_endpoint_serves_a_valid_module(self):
+        _, url = self._start_server()
+        with urllib.request.urlopen(f"{url}/static/access-check.wasm", timeout=5) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get("Content-Type"), "application/wasm")
+            self.assertEqual(resp.read()[:4], b"\x00asm")
+
     def test_protected_endpoints_require_a_session(self):
         _, url = self._start_server()
         self.assertEqual(_request(url, "/api/patient/exams")[0], 401)

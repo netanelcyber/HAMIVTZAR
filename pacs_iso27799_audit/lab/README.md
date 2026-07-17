@@ -100,6 +100,37 @@ guard directly). `/admin/debug` is deliberately undocumented and reachable
 without auth — finding it is the point: it's a stand-in for the very common
 real-world finding of a debug/diagnostic endpoint left open in production.
 
+## WASM reverse-engineering exercise
+
+`GET /static/access-check.wasm` serves a tiny WebAssembly module — a
+client-side "looks valid" checksum over a 3-digit access code. It is
+**not** a copy of any real product's WASM, and it is **not** the real
+secret comparison (that's still only server-side, in `/instant-access`);
+it models a real, flawed pattern: some client apps run a cheap client-side
+pre-check before bothering the server, and that check's bytecode ships to
+the browser in full and can always be extracted and disassembled — WASM is
+not obfuscation.
+
+```bash
+python -m pacs_iso27799_audit.lab.mock_patient_portal
+python -m pacs_iso27799_audit.lab.fetch_wasm_challenge --output access-check.wasm
+python -m pacs_iso27799_audit.lab.inspect_wasm access-check.wasm
+```
+
+`inspect_wasm.py` is a small, dependency-free disassembler (covers a useful
+opcode subset, not the full spec) — it gives you a wat-like opcode listing,
+the same as you'd get from a real tool like `wasm2wat`. From there, working
+out which 3-digit codes satisfy the checksum is the actual exercise; this
+lab doesn't hand you the answer. **If you want to actually do this exercise,
+don't read `wasm_challenge.py`'s source** — it says so at the top too, but
+worth repeating here: reading the Python that emits the bytecode is
+equivalent to reading a solved disassembly.
+
+The lesson connects back to AC-8: even a "clever" or obfuscated client-side
+check is still just bytes the client received and can read — it can narrow
+down guesses (as this one does) but was never a security boundary on its
+own, only ever the server-side control sitting behind it.
+
 ## Mapping back to the audit toolkit
 
 Once you've rehearsed the technique here, the corresponding entries in
