@@ -77,6 +77,29 @@ The practical lesson: this kind of stateful, single-use token slows down
 one) but does not stop a script written to handle it, same as here — it's a
 mild speed bump, not a substitute for AC-6/AC-7's rate limiting/lockout.
 
+## Endpoint discovery / reverse engineering rehearsal
+
+The mock now exposes a small family of endpoints beyond the login flow
+(a session-protected "results" endpoint, a couple of commonly-misconfigured
+diagnostic/debug endpoints, session invalidation) — see
+`mock_patient_portal.py`'s docstring for the full list. `rehearse_endpoint_recon.py`
+rehearses discovering and fingerprinting them without reading that list
+first, exactly like recon against a real target: it probes a built-in
+candidate path list (real hits mixed with plausible-but-absent decoys),
+tries GET then POST when a path 404s, and reports which paths responded and
+what the status code implies (open, requires auth, wrong method, not found).
+
+```bash
+python -m pacs_iso27799_audit.lab.mock_patient_portal
+python -m pacs_iso27799_audit.lab.rehearse_endpoint_recon
+```
+
+Same safety property as the other lab scripts: hard-refuses any `--host`
+other than `127.0.0.1`/`localhost` (it reuses `rehearse_lockout_check.py`'s
+guard directly). `/admin/debug` is deliberately undocumented and reachable
+without auth — finding it is the point: it's a stand-in for the very common
+real-world finding of a debug/diagnostic endpoint left open in production.
+
 ## Mapping back to the audit toolkit
 
 Once you've rehearsed the technique here, the corresponding entries in

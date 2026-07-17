@@ -25,6 +25,8 @@ from pacs_iso27799_audit.lab.mock_patient_portal import (
     _State,
     _make_handler,
 )
+from pacs_iso27799_audit.lab.rehearse_endpoint_recon import CANDIDATE_PATHS
+from pacs_iso27799_audit.lab.rehearse_endpoint_recon import main as recon_main
 from pacs_iso27799_audit.lab.rehearse_lockout_check import _require_loopback
 
 
@@ -47,6 +49,24 @@ def _post(base_url, dob, code, token=None):
             return resp.status, json.loads(resp.read())
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read())
+
+
+def _request(base_url, path, method="GET", session_token=None):
+    headers = {"Authorization": f"Bearer {session_token}"} if session_token else {}
+    req = urllib.request.Request(f"{base_url}{path}", method=method, headers=headers,
+                                  data=b"" if method == "POST" else None)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = resp.read()
+            return resp.status, json.loads(body) if body else None
+    except urllib.error.HTTPError as e:
+        body = e.read()
+        return e.code, json.loads(body) if body else None
+
+
+def _login(base_url, dob, code):
+    _, payload = _post(base_url, dob, code, _get_token(base_url))
+    return payload["session_token"]
 
 
 class StateLogicTests(unittest.TestCase):
@@ -144,6 +164,49 @@ class HttpEndToEndTests(unittest.TestCase):
         self.assertEqual(statuses, [401, 401, 429])
 
 
+class RouteTests(unittest.TestCase):
+    def _start_server(self):
+        state = _State(rate_limit_enabled=True, lockout_threshold=5, lockout_window_seconds=60)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), _make_handler(state))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        port = server.server_address[1]
+        return state, f"http://127.0.0.1:{port}"
+
+    def test_unauthenticated_endpoints(self):
+        _, url = self._start_server()
+        self.assertEqual(_request(url, "/health")[0], 200)
+        self.assertEqual(_request(url, "/version")[0], 200)
+        self.assertEqual(_request(url, "/admin/debug")[0], 200)
+
+    def test_unknown_path_404s(self):
+        _, url = self._start_server()
+        self.assertEqual(_request(url, "/nope")[0], 404)
+
+    def test_protected_endpoints_require_a_session(self):
+        _, url = self._start_server()
+        self.assertEqual(_request(url, "/api/patient/exams")[0], 401)
+        self.assertEqual(_request(url, "/change-password", method="POST")[0], 401)
+        self.assertEqual(_request(url, "/logout", method="POST")[0], 401)
+
+    def test_protected_endpoints_work_with_a_valid_session(self):
+        state, url = self._start_server()
+        token = _login(url, DEMO_DOB, state.access_code)
+        status, payload = _request(url, "/api/patient/exams", session_token=token)
+        self.assertEqual(status, 200)
+        self.assertIn("exams", payload)
+
+    def test_logout_invalidates_the_session(self):
+        state, url = self._start_server()
+        token = _login(url, DEMO_DOB, state.access_code)
+        self.assertEqual(_request(url, "/logout", method="POST", session_token=token)[0], 200)
+        # same token no longer works
+        self.assertEqual(_request(url, "/api/patient/exams", session_token=token)[0], 401)
+
+
 class LoopbackGuardTests(unittest.TestCase):
     def test_allows_loopback_hosts(self):
         _require_loopback("127.0.0.1")
@@ -152,6 +215,30 @@ class LoopbackGuardTests(unittest.TestCase):
     def test_refuses_non_loopback_host(self):
         with self.assertRaises(SystemExit):
             _require_loopback("example.com")
+
+
+class EndpointReconTests(unittest.TestCase):
+    def _start_server(self):
+        state = _State(rate_limit_enabled=True, lockout_threshold=5, lockout_window_seconds=60)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), _make_handler(state))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server.server_address[1]
+
+    def test_refuses_non_loopback_host(self):
+        with self.assertRaises(SystemExit):
+            recon_main(["--host", "example.com"])
+
+    def test_finds_known_routes_against_the_real_server(self):
+        port = self._start_server()
+        # exercises the real recon flow end-to-end; just needs to complete cleanly
+        self.assertEqual(recon_main(["--port", str(port), "--delay-seconds", "0"]), 0)
+        # sanity: the routes we know exist are in the candidate list this scans
+        for known in ("/login", "/instant-access", "/health"):
+            self.assertIn(known, CANDIDATE_PATHS)
 
 
 if __name__ == "__main__":
