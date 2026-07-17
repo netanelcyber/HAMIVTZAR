@@ -12,16 +12,21 @@ import unittest
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
+from urllib.parse import urlencode
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pacs_iso27799_audit.lab.mock_patient_portal import DEMO_DOB, DEMO_USER_ID, _State, _make_handler
+from pacs_iso27799_audit.lab.mock_patient_portal import DEMO_DOB, FIELD_CODE, FIELD_DOB, _State, _make_handler
 from pacs_iso27799_audit.lab.rehearse_lockout_check import _require_loopback
 
 
-def _post(url, user_id, dob, code):
-    body = json.dumps({"user_id": user_id, "dob": dob, "access_code": code}).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+def _post(url, dob, code):
+    body = urlencode({FIELD_DOB: dob, FIELD_CODE: code}).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, json.loads(resp.read())
@@ -32,28 +37,28 @@ def _post(url, user_id, dob, code):
 class StateLogicTests(unittest.TestCase):
     def test_correct_credentials_pass(self):
         state = _State(rate_limit_enabled=True, lockout_threshold=5, lockout_window_seconds=60)
-        status, payload = state.check(DEMO_USER_ID, DEMO_DOB, state.access_code)
+        status, payload = state.check(DEMO_DOB, state.access_code)
         self.assertEqual(status, 200)
 
     def test_wrong_code_fails(self):
         state = _State(rate_limit_enabled=True, lockout_threshold=5, lockout_window_seconds=60)
         wrong = "000" if state.access_code != "000" else "001"
-        status, _ = state.check(DEMO_USER_ID, DEMO_DOB, wrong)
+        status, _ = state.check(DEMO_DOB, wrong)
         self.assertEqual(status, 401)
 
     def test_lockout_after_threshold(self):
         state = _State(rate_limit_enabled=True, lockout_threshold=3, lockout_window_seconds=60)
         wrong = "000" if state.access_code != "000" else "001"
-        statuses = [state.check(DEMO_USER_ID, DEMO_DOB, wrong)[0] for _ in range(3)]
+        statuses = [state.check(DEMO_DOB, wrong)[0] for _ in range(3)]
         self.assertEqual(statuses, [401, 401, 401])
-        locked_status, _ = state.check(DEMO_USER_ID, DEMO_DOB, wrong)
+        locked_status, _ = state.check(DEMO_DOB, wrong)
         self.assertEqual(locked_status, 429)
 
     def test_no_lockout_when_rate_limit_disabled(self):
         state = _State(rate_limit_enabled=False, lockout_threshold=3, lockout_window_seconds=60)
         wrong = "000" if state.access_code != "000" else "001"
         for _ in range(10):
-            status, _ = state.check(DEMO_USER_ID, DEMO_DOB, wrong)
+            status, _ = state.check(DEMO_DOB, wrong)
             self.assertEqual(status, 401)
 
 
@@ -73,14 +78,14 @@ class HttpEndToEndTests(unittest.TestCase):
 
     def test_success_over_http(self):
         state, url = self._start_server(rate_limit_enabled=True)
-        status, payload = _post(url, DEMO_USER_ID, DEMO_DOB, state.access_code)
+        status, payload = _post(url, DEMO_DOB, state.access_code)
         self.assertEqual(status, 200)
         self.assertEqual(payload["status"], "ok")
 
     def test_lockout_over_http(self):
         state, url = self._start_server(rate_limit_enabled=True, lockout_threshold=2, lockout_window_seconds=60)
         wrong = "000" if state.access_code != "000" else "001"
-        statuses = [_post(url, DEMO_USER_ID, DEMO_DOB, wrong)[0] for _ in range(3)]
+        statuses = [_post(url, DEMO_DOB, wrong)[0] for _ in range(3)]
         self.assertEqual(statuses, [401, 401, 429])
 
 

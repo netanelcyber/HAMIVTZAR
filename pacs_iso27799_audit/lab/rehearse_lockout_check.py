@@ -25,8 +25,9 @@ import json
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlencode
 
-from .mock_patient_portal import CODE_SPACE, DEMO_DOB, DEMO_USER_ID
+from .mock_patient_portal import CODE_SPACE, DEMO_DOB, FIELD_CODE, FIELD_DOB
 
 _ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
 
@@ -40,9 +41,13 @@ def _require_loopback(host: str) -> None:
         )
 
 
-def _attempt(url: str, user_id: str, dob: str, code: str) -> tuple:
-    body = json.dumps({"user_id": user_id, "dob": dob, "access_code": code}).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+def _attempt(url: str, dob: str, code: str) -> tuple:
+    body = urlencode({FIELD_DOB: dob, FIELD_CODE: code}).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, json.loads(resp.read())
@@ -54,7 +59,6 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", default="127.0.0.1", choices=sorted(_ALLOWED_HOSTS))
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--user-id", default=DEMO_USER_ID)
     parser.add_argument("--dob", default=DEMO_DOB)
     parser.add_argument("--max-attempts", type=int, default=CODE_SPACE)
     args = parser.parse_args(argv)
@@ -66,7 +70,7 @@ def main(argv=None) -> int:
     for attempt in range(1, args.max_attempts + 1):
         code = f"{attempt - 1:03d}"
         try:
-            status, payload = _attempt(url, args.user_id, args.dob, code)
+            status, payload = _attempt(url, args.dob, code)
         except (urllib.error.URLError, ConnectionError) as e:
             print(f"Could not reach {url}: {e}. Is mock_patient_portal.py running?")
             return 1

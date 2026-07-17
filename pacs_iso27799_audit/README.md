@@ -63,6 +63,27 @@ short-lived access codes, and logging of attempts. `lab/` has a local,
 loopback-only rehearsal target for exercising exactly this class of check —
 see below.
 
+## Quantitative risk indicator (logistic regression)
+
+`risk_model.py` turns the per-control results into one severity-weighted
+risk fraction per control domain (only domains with at least one automated
+control produce a signal) and fits a logistic-regression classifier over
+those domain-risk vectors:
+
+```bash
+pip install scikit-learn
+python -m pacs_iso27799_audit.risk_model --config pacs_iso27799_audit/sample_config.json
+```
+
+**Important limitation:** the training set (`build_dataset` in
+`risk_model.py`) is a small, hand-authored **synthetic** set of domain-risk
+vectors with illustrative labels — there is no real incident/breach history
+behind it, the same discipline `security_classifier/` applies to its
+placeholder data. Treat the output as a demonstration of the *method*
+(audit results → domain risk features → logistic regression), not a
+calibrated real-world probability. A real risk model needs real, labeled
+incident history for training.
+
 ## Extending it
 
 - Add a `Control(...)` entry to `CONTROLS` in `controls.py` for any control

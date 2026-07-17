@@ -1,11 +1,14 @@
 """A tiny, local, loopback-only mock of a patient self-service login pattern.
 
-This is NOT a copy of any real product's code, UI, or branding -- it is a
-generic stand-in for one narrow pattern: authenticating with a low-entropy
-identifier (date of birth) plus a short secondary code, the kind of flow
-controls AC-6/AC-7/OPS-5 in ../controls.py are about. It exists so the
-brute-force / rate-limiting / lockout testing technique can be rehearsed
-against something you run yourself.
+This is NOT a copy of any real product's code, branding, or visual design --
+it deliberately mimics only the *functional* shape of one narrow pattern
+(a two-field patient self-service login: date of birth + a short secondary
+access code, submitted as a normal HTML form POST) because that shape is
+what determines the security properties controls AC-6/AC-7/OPS-5 in
+../controls.py are checking. There is no product name, logo, or copyright
+text here to copy, and there won't be -- a visually convincing replica of a
+real login page has no testing value and is exactly the shape of a phishing
+page, so this stays a plain, clearly-labeled lab form.
 
 Safety property: this server only ever binds to 127.0.0.1. There is no flag
 to change that -- if you need it reachable from elsewhere, you have made a
@@ -26,8 +29,14 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, Tuple
+from urllib.parse import parse_qs
 
-DEMO_USER_ID = "demo-patient"
+# Field names match the two-field shape (date of birth + short access code)
+# used by this class of patient self-service login -- functional fidelity
+# only, not a claim about any specific product's exact wire format.
+FIELD_DOB = "patient_birth_date"
+FIELD_CODE = "user_code"
+
 DEMO_DOB = "1990-01-01"  # intentionally "public" in this lab -- the point is DOB alone is weak
 CODE_SPACE = 1000  # 3-digit code, small on purpose so a demo brute force finishes quickly
 
@@ -39,28 +48,30 @@ class _State:
         self.lockout_threshold = lockout_threshold
         self.lockout_window_seconds = lockout_window_seconds
         self.lock = threading.Lock()
-        # user_id -> (failure_count, window_started_at, locked_until)
+        # dob -> (failure_count, window_started_at, locked_until)
+        # Keyed on the "identifying" field, same as a real deployment should
+        # lock out per patient record rather than only per source IP.
         self.failures: Dict[str, Tuple[int, float, float]] = {}
 
-    def check(self, user_id: str, dob: str, access_code: str) -> Tuple[int, dict]:
+    def check(self, dob: str, access_code: str) -> Tuple[int, dict]:
         now = time.monotonic()
         with self.lock:
-            count, window_start, locked_until = self.failures.get(user_id, (0, now, 0.0))
+            count, window_start, locked_until = self.failures.get(dob, (0, now, 0.0))
 
             if self.rate_limit_enabled and now < locked_until:
                 return 429, {"error": "locked_out", "retry_after_seconds": round(locked_until - now, 1)}
 
-            if user_id != DEMO_USER_ID or dob != DEMO_DOB or access_code != self.access_code:
+            if dob != DEMO_DOB or access_code != self.access_code:
                 if now - window_start > self.lockout_window_seconds:
                     count, window_start = 0, now
                 count += 1
                 locked_until = 0.0
                 if self.rate_limit_enabled and count >= self.lockout_threshold:
                     locked_until = now + self.lockout_window_seconds
-                self.failures[user_id] = (count, window_start, locked_until)
+                self.failures[dob] = (count, window_start, locked_until)
                 return 401, {"error": "invalid_credentials"}
 
-            self.failures.pop(user_id, None)
+            self.failures.pop(dob, None)
             return 200, {"status": "ok", "message": "demo exam summary unlocked"}
 
 
@@ -75,15 +86,12 @@ def _make_handler(state: _State):
                 self.end_headers()
                 return
             length = int(self.headers.get("Content-Length", 0))
-            try:
-                body = json.loads(self.rfile.read(length) or b"{}")
-            except json.JSONDecodeError:
-                body = {}
+            raw = self.rfile.read(length).decode("utf-8", errors="replace")
+            fields = parse_qs(raw)
 
             status, payload = state.check(
-                str(body.get("user_id", "")),
-                str(body.get("dob", "")),
-                str(body.get("access_code", "")),
+                fields.get(FIELD_DOB, [""])[0],
+                fields.get(FIELD_CODE, [""])[0],
             )
             data = json.dumps(payload).encode("utf-8")
             self.send_response(status)
@@ -107,9 +115,10 @@ def main(argv=None) -> int:
     state = _State(args.rate_limit, args.lockout_threshold, args.lockout_window_seconds)
     server = ThreadingHTTPServer(("127.0.0.1", args.port), _make_handler(state))
 
-    print(f"Mock patient self-service portal (LAB ONLY) on http://127.0.0.1:{args.port}/instant-access")
-    print(f"  demo user_id={DEMO_USER_ID!r} dob={DEMO_DOB!r} (both 'known to the attacker' in this exercise)")
-    print(f"  ground truth access_code={state.access_code!r} (operator-only -- the rehearsal client must guess it)")
+    print(f"Mock patient self-service login (LAB ONLY) on http://127.0.0.1:{args.port}/instant-access")
+    print(f"  form fields: {FIELD_DOB!r}, {FIELD_CODE!r} (application/x-www-form-urlencoded POST)")
+    print(f"  demo {FIELD_DOB}={DEMO_DOB!r} ('known to the attacker' in this exercise)")
+    print(f"  ground truth {FIELD_CODE}={state.access_code!r} (operator-only -- the rehearsal client must guess it)")
     print(f"  rate_limit={'enabled' if args.rate_limit else 'disabled'} "
           f"threshold={args.lockout_threshold} window={args.lockout_window_seconds}s")
     print("Ctrl+C to stop.")

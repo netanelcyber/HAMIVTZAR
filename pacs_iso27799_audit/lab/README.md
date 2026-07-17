@@ -5,11 +5,15 @@ A generic, local-only stand-in for testing controls **AC-6**, **AC-7**, and
 a patient self-service login that authenticates with a low-entropy
 identifier (date of birth) plus a short secondary code.
 
-This is **not** a copy of any real product's code, UI, or branding. It is a
-minimal stand-in for one narrow authentication pattern, built so the testing
-*technique* (brute-force an access code, observe whether lockout kicks in)
-can be rehearsed against something you run yourself — never against a real
-hospital system or patient portal.
+This is **not** a copy of any real product's code, UI, or branding — there is
+no product name, logo, copyright notice, or page design here, and there
+won't be. It matches only the *functional* shape of this class of login
+(two form fields, `patient_birth_date` + `user_code`, submitted as a normal
+`application/x-www-form-urlencoded` POST) because that shape is what
+determines the security properties being tested; a visually convincing
+replica of a real login page adds no testing value and is exactly the shape
+of a phishing page, so this stays a plain, generic lab server with no UI at
+all (it's a raw HTTP endpoint, not an HTML page).
 
 ## Safety properties
 
@@ -19,7 +23,7 @@ hospital system or patient portal.
   `127.0.0.1`/`localhost` — this is not configurable. It is a rehearsal
   client for this specific local server, not a general-purpose
   credential-guessing tool.
-- No real patient data, no real hospital or vendor branding, no network
+- No real patient data, no real hospital or vendor branding/UI, no network
   calls beyond loopback.
 
 ## Try it

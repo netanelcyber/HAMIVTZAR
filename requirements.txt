@@ -17,3 +17,9 @@
 # see README "Security classifier" section) needs:
 #     pip install scikit-learn joblib
 # Feature extraction itself (security_classifier/features.py) is stdlib-only.
+#
+# pacs_iso27799_audit/risk_model.py (logistic-regression risk indicator over
+# the ISO 27799 audit results) needs:
+#     pip install scikit-learn
+# The audit tool itself (audit.py, controls.py) and the rehearsal lab (lab/)
+# are stdlib-only.

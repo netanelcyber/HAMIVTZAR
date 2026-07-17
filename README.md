@@ -154,9 +154,10 @@ scripts/sandboxed_trace.sh        Template: collect a runtime trace on YOUR isol
 pacs_iso27799_audit/              ISO 27799 compliance checklist scorer for PACS/DICOM configs (no network access)
   controls.py                       Control catalog across the 14 ISO 27799 domains
   audit.py                          Scores a config JSON against the catalog; CLI + Markdown report
+  risk_model.py                     Logistic-regression risk indicator over audit results (synthetic training data)
   sample_config.json                Fictional/illustrative demo config only -- not real data
   lab/                               Local, loopback-only rehearsal target for the patient-self-service-login controls
-tests/                            Offline tests for ingestion, retrieval, backends, the classifier, and the audit toolkit + lab
+tests/                            Offline tests for ingestion, retrieval, backends, the classifier, and the audit toolkit + lab + risk model
 ```
 
 ## How it works
@@ -294,7 +295,17 @@ relationships, business continuity, and more). See
 python -m pacs_iso27799_audit.audit --config pacs_iso27799_audit/sample_config.json
 python -m pacs_iso27799_audit.audit --config pacs_iso27799_audit/sample_config.json --output report.md
 python -m pacs_iso27799_audit.audit --list-controls
+
+# optional: quantitative risk indicator (logistic regression over audit results)
+pip install scikit-learn
+python -m pacs_iso27799_audit.risk_model --config pacs_iso27799_audit/sample_config.json
 ```
+
+`risk_model.py` is trained only on a small hand-authored **synthetic**
+dataset (no real incident history) — same discipline as
+`security_classifier`'s placeholder data. It's a demonstration of the
+method (domain risk features → logistic regression), not a calibrated
+real-world probability.
 
 This project intentionally does not include active network reconnaissance
 or exploitation tooling aimed at any real, named production system without
@@ -317,7 +328,9 @@ python -m unittest discover -s tests -v
 Covers tokenization, chunking, BM25 ranking, index save/load round-tripping,
 the extractive backend, backend resolution (including that `auto` never
 selects the online Claude backend), the security classifier's feature
-extraction / dataset assembly / training pipeline, and the PACS ISO 27799
-audit toolkit's control catalog and scoring logic. Runs fully offline; the two
-end-to-end training tests skip automatically if `scikit-learn`/`joblib` aren't
-installed.
+extraction / dataset assembly / training pipeline, the PACS ISO 27799 audit
+toolkit's control catalog and scoring logic, the local rehearsal lab
+(including a real loopback-only HTTP round trip), and the risk model's
+feature extraction and synthetic dataset. Runs fully offline; the security
+classifier's two end-to-end training tests and the risk model's model-fitting
+tests skip automatically if `scikit-learn`/`joblib` aren't installed.
