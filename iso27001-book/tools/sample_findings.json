@@ -1,0 +1,7 @@
+[
+  {"cwe_id": "CWE-89", "asset": "פורטל לקוחות - שכבת DB", "notes": "SQLi בטופס חיפוש"},
+  {"cwe_id": "CWE-798", "asset": "שירות אינטגרציה פנימי", "likelihood": 2, "notes": "מפתח API קבוע בקוד"},
+  {"cwe_id": "CWE-79", "asset": "אתר שיווקי", "notes": "XSS משתקף בפרמטר חיפוש"},
+  {"cwe_id": "CWE-311", "asset": "גיבויים בענן", "impact_a": 1, "notes": "גיבויים לא מוצפנים ב-S3"},
+  {"cwe_id": "CWE-862", "asset": "API ניהול", "likelihood": 3, "notes": "נקודת קצה ניהולית ללא בדיקת הרשאה"}
+]

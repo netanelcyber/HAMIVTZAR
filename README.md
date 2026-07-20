@@ -144,6 +144,12 @@ linux_docs_llm/
   llm.py         Retrieve chunks and answer with the chosen backend
   cli.py         ingest / ask / chat commands
 data/docs/                        Sample Linux documentation corpus
+iso27001-book/                    Hebrew summary book on ISO/IEC 27001 and the ISO/IEC 27000 family
+  README.md                         Table of contents / cover page
+  01..08-*.md                       Chapters: intro, clauses 4-10, Annex A controls, derivative
+                                     standards, certification process, practical rollout, 2013 vs
+                                     2022, glossary + checklist
+  tools/cwe_risk_calculator.py      Offline CWE-informed Likelihood x Impact risk scorer (ISO/IEC 27005-style)
 security_classifier/              Defensive static + optional dynamic classifier for Python code
   features.py                       Static AST-based feature extraction (never executes code)
   dynamic_features.py               Parses a runtime trace you collected (never executes code)
