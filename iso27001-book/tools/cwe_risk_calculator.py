@@ -105,6 +105,19 @@ CWE_BASELINE: dict[str, dict] = {
                  "likelihood": 3, "impact_c": 3, "impact_i": 3, "impact_a": 2},
     "CWE-20": {"name": "Improper Input Validation", "category": "קלט משתמש",
                "likelihood": 4, "impact_c": 3, "impact_i": 3, "impact_a": 2},
+    # Frequently seen in web/network pentest reports (see chapter 9):
+    "CWE-16": {"name": "Configuration (general security misconfiguration)", "category": "תצורה",
+               "likelihood": 4, "impact_c": 3, "impact_i": 2, "impact_a": 2},
+    "CWE-295": {"name": "Improper Certificate Validation", "category": "רשת / TLS",
+                "likelihood": 2, "impact_c": 4, "impact_i": 3, "impact_a": 1},
+    "CWE-319": {"name": "Cleartext Transmission of Sensitive Information", "category": "רשת / TLS",
+                "likelihood": 3, "impact_c": 4, "impact_i": 2, "impact_a": 1},
+    "CWE-346": {"name": "Origin Validation Error", "category": "Web / רשת",
+                "likelihood": 2, "impact_c": 3, "impact_i": 3, "impact_a": 1},
+    "CWE-601": {"name": "URL Redirection to Untrusted Site (Open Redirect)", "category": "Web / קלט משתמש",
+                "likelihood": 3, "impact_c": 2, "impact_i": 2, "impact_a": 1},
+    "CWE-1021": {"name": "Improper Restriction of Rendered UI Layers (Clickjacking)", "category": "Web / תצורה",
+                 "likelihood": 2, "impact_c": 1, "impact_i": 3, "impact_a": 1},
 }
 
 RISK_LEVELS = (

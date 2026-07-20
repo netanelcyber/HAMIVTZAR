@@ -29,8 +29,11 @@ python3 cwe_risk_calculator.py report --input sample_findings.json --output risk
 
 מבנה קובץ ממצאים (JSON או CSV) לפקודת `report`: שדה חובה `cwe_id`, ושדות
 אופציונליים `asset`, `likelihood`, `impact_c`, `impact_i`, `impact_a`,
-`notes` — כל שדה שלא סופק נלקח מטבלת ברירת המחדל של הכלי. דוגמה מלאה ב-
-`sample_findings.json`.
+`notes` — כל שדה שלא סופק נלקח מטבלת ברירת המחדל של הכלי. דוגמה כללית ב-
+`sample_findings.json`, ודוגמה מבוססת על שני ממצאי pentest **אמיתיים**
+מתוך `pentest-milatova/` (בשורש הריפו) ב-`pentest_case_study_findings.json`
+— ראו פירוט מלא בפרק 9 של הספר (9.6), כולל הסבר מדוע ממצא אחד דורש דריסה
+ידנית של ברירת המחדל כדי לשקף נכון את ההקשר.
 
 ### מודל הניקוד
 

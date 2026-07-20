@@ -146,9 +146,13 @@ linux_docs_llm/
 data/docs/                        Sample Linux documentation corpus
 iso27001-book/                    Hebrew summary book on ISO/IEC 27001 and the ISO/IEC 27000 family
   README.md                         Table of contents / cover page
-  01..08-*.md                       Chapters: intro, clauses 4-10, Annex A controls, derivative
-                                     standards, certification process, practical rollout, 2013 vs
-                                     2022, glossary + checklist
+  01..07-*.md                       Chapters: intro, clauses 4-10, Annex A controls, derivative
+                                     standards, certification process, practical rollout, 2013 vs 2022
+  08-milon-munachim-vecheck-list.md Glossary + implementation/certification checklist
+  09-pentesting-veiso27001.md        Pentesting chapter: maps pentest to Annex A controls, test types,
+                                     methodologies (PTES/OWASP/NIST/OSSTMM), ROE/ethics, and a worked
+                                     example converting this repo's own pentest-milatova findings into
+                                     a risk register
   tools/cwe_risk_calculator.py      Offline CWE-informed Likelihood x Impact risk scorer (ISO/IEC 27005-style)
 security_classifier/              Defensive static + optional dynamic classifier for Python code
   features.py                       Static AST-based feature extraction (never executes code)
