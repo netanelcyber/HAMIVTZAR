@@ -17,3 +17,8 @@
 # see README "Security classifier" section) needs:
 #     pip install scikit-learn joblib
 # Feature extraction itself (security_classifier/features.py) is stdlib-only.
+#
+# iso27001-book/tools/build_book_pdf.py (renders the Hebrew ISO 27001 book
+# to a single PDF) needs:
+#     pip install weasyprint markdown
+# The book's other tool, cwe_risk_calculator.py, is stdlib-only.
