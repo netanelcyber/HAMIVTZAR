@@ -158,8 +158,9 @@ iso27001-book/                    Hebrew summary book on ISO/IEC 27001 and the I
   11-zero-day-research.md            Zero-day discovery methodology framed for risk management (fuzzing,
                                      code review, patch diffing, coordinated disclosure), not exploit dev
   tools/cwe_risk_calculator.py      Offline CWE-informed Likelihood x Impact risk scorer (ISO/IEC 27005-style)
-  tools/malicious_code_triage.py    Static (never-executes) PHP/Python/JS-TS triage helper for suspicious
-                                     files found during an engagement (webshells, npm install hooks, etc.)
+  tools/README.md                   Also documents ready-made static-analysis tools for manual triage of a
+                                     suspicious PHP/Python/JS-TS file (Semgrep, YARA + PHP-Malware-Finder,
+                                     Bandit, ESLint-security) -- deliberately not reimplemented in this repo
 security_classifier/              Defensive static + optional dynamic classifier for Python code
   features.py                       Static AST-based feature extraction (never executes code)
   dynamic_features.py               Parses a runtime trace you collected (never executes code)

@@ -60,43 +60,34 @@ python3 cwe_risk_calculator.py protocol
 ISO/IEC 27005 משאיר את בחירת המתודולוגיה המדויקת לארגון, ובלבד שהיא עקבית
 וניתנת לשחזור (ראו סעיף 6.1.2 בפרק 2).
 
-## `malicious_code_triage.py` — אנליטיקה ידנית של קוד PHP/Python/JS-TS חשוד
+## אנליטיקה ידנית של קוד PHP/Python/JS-TS חשוד — כלים קיימים ומוכרים
 
-כלי CLI **סטטי בלבד** — לעולם לא מריץ, מייבא, או מעריך (`eval`) את הקובץ
-הנסרק, ומעולם לא מתחבר לרשת. הוא מיועד לשלב שבו כבר יש בידכם קובץ חשוד
-(למשל webshell שהתגלה בעקבות ממצא CWE-434, פרק 10) וצריך **לעבור עליו
-ידנית** ביעילות — הכלי מסמן שורות שתואמות תבניות ידועות (הרצת קוד
-דינמית, שרשראות קידוד/פענוח, הרצת פקודות מערכת, superglobals/קלט
-זורם ישירות לפונקציית הרצה, מחרוזות base64 ארוכות, מזהים של webshells
-ציבוריים ידועים, ו-hooks חשודים ב-`package.json` שרצים אוטומטית
-ב-`npm install`) — **תמיד כעוגן לבדיקה אנושית, לא כפסק דין אוטומטי**:
-לכל דפוס יש שימושים לגיטימיים, וההקשר קובע.
+בשונה משאר הכלים בתיקייה זו, לצורך הסקירה הידנית של קובץ חשוד (למשל
+webshell שהתגלה בעקבות ממצא CWE-434, פרק 10) **אין צורך בכלי חדש** —
+זהו תחום שבו קיימים כלי קוד-פתוח בוגרים, נבדקים היטב, ומתוחזקים באופן
+פעיל. הטבלה הבאה ממפה כל שפה לכלי המקובל בתעשייה, עם פקודת התקנה
+והרצה מינימלית. כולם **סטטיים** (לא מריצים את הקובץ הנסרק) וניתנים
+להרצה אופליין לאחר ההתקנה החד-פעמית (חלקם דורשים הורדת חוקים/רשימות
+חתימה מעודכנות מדי פעם מהאינטרנט):
+
+| שפה/היקף | כלי | התקנה | הרצה בסיסית |
+|---|---|---|---|
+| רב-לשוני (PHP/Python/JS/TS ועוד) | **Semgrep** — מנוע כללי-בדיקה סטטיים עם ruleset ציבורי עצום | `pip install semgrep` | `semgrep --config p/security-audit --config p/secrets ./path` |
+| PHP (webshells/malware במיוחד) | **PHP-Malware-Finder** — חוקי YARA ייעודיים לזיהוי webshells וקוד PHP מעורפל | `git clone https://github.com/nbs-system/php-malware-finder` + `pip install yara-python` | `yara -r php-malware-finder/php.yar suspect.php` |
+| Python (SAST) | **Bandit** — סורק אבטחה סטטי רשמי של PyCQA | `pip install bandit` | `bandit -r ./path` |
+| JavaScript/TypeScript | **ESLint** + `eslint-plugin-security` / `eslint-plugin-no-unsanitized` | `npm install --save-dev eslint eslint-plugin-security` | `npx eslint --plugin security --rule '{"security/detect-eval-with-expression":"error"}' ./path` |
+| npm (שרשרת אספקה) | **`npm audit`** לתלויות ידועות, ועיון ידני ב-`scripts` (`preinstall`/`postinstall`) בקובץ `package.json` | מובנה ב-npm | `npm audit` |
+| חתימות כלליות (כל שפה, כל סוג קובץ) | **YARA** עצמו, עם חוקים כלליים (כמו [Neo23x0/signature-base](https://github.com/Neo23x0/signature-base)) | `pip install yara-python` | `yara -r rules.yar suspect_dir/` |
+
+**עיקרון מנחה זהה לשאר הספר**: תוצאת כל אחד מהכלים האלה היא **עוגן
+לבדיקה אנושית**, לא פסק דין אוטומטי — Semgrep/Bandit/ESLint-security
+מייצרים גם False Positives בקוד לגיטימי (למשל שימוש תקין ב-`eval`
+בסקריפט build), ו-YARA תלוי לחלוטין באיכות ובעדכניות קובץ החוקים
+שנטען.
 
 לניתוח סטטי עמוק ומבוסס-ML **ל-Python בלבד** (מיצוי תכונות מ-AST, מודל
-מאומן, הסבר בשפה טבעית), ראו את `security_classifier/` בשורש הריפו —
-כלי זה הוא "האח הקל" שלו: פחות מדויק אך תומך בשלוש שפות ומתמקד בזרימת
-עבודה ידנית ומהירה במקום ניקוד אוטומטי.
-
-### שימוש
-
-```bash
-# סריקת קובץ בודד (זיהוי שפה אוטומטי לפי סיומת)
-python3 malicious_code_triage.py suspect.php
-
-# סריקת תיקייה שלמה רקורסיבית (מדלג כברירת מחדל על node_modules/vendor/.git)
-python3 malicious_code_triage.py ./uploaded_files/
-
-# הצגת High בלבד, ופלט JSON למיזוג עם כלים אחרים
-python3 malicious_code_triage.py ./uploaded_files/ --min-severity High --json
-```
-
-### קטגוריות אינדיקטורים לדוגמה
-
-| שפה | דוגמאות אינדיקטורים |
-|---|---|
-| PHP | `eval()`/`assert()`/`create_function()`, שרשראות `base64_decode`/`gzinflate`, `system()`/`exec()`/backticks, `$_GET`/`$_POST` שזורם ישירות לפונקציית הרצה, `$$` (משתני-משתנים), מזהי webshells ציבוריים ידועים |
-| Python | `eval`/`exec`/`compile`, `os.system`, `subprocess` עם `shell=True`, `pickle`/`marshal.loads`, ייבוא דינמי של `os` דרך `__import__`/`__builtins__` |
-| JavaScript/TypeScript | `eval`/`new Function`, `child_process` (`exec`/`execSync`/`spawn`), שרשראות `atob`/`Buffer.from(...,'base64')`, `String.fromCharCode` ארוך, `package.json` עם `postinstall`/`preinstall` חשוד |
+מאומן, הסבר בשפה טבעית — כלי פנימי של הריפו הזה, לא כלי חיצוני), ראו
+את `security_classifier/` בשורש הריפו.
 
 ## `build_book_pdf.py` — הפקת הספר כקובץ PDF יחיד
 
