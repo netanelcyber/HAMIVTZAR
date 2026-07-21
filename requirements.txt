@@ -20,3 +20,6 @@
 #
 # ldap-pentest-toolkit/ (read-only LDAP recon tool, see its own README) needs:
 #     pip install ldap3
+# Its tools/dns_discovery.sh is plain bash + `dig` (apt install dnsutils);
+# `ldapsearch` (apt install ldap-utils) and `fierce` (pip install fierce)
+# are optional extras it shells out to, both gracefully skipped if absent.
