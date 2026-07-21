@@ -21,6 +21,8 @@ ORDER = [
     ("07-2013-mul-2022.md", "ch07"),
     ("08-milon-munachim-vecheck-list.md", "ch08"),
     ("09-pentesting-veiso27001.md", "ch09"),
+    ("10-protokolim-mefurtim-cwe.md", "ch10"),
+    ("11-zero-day-research.md", "ch11"),
     ("tools/README.md", "appendix-tools"),
 ]
 
@@ -35,6 +37,8 @@ LINK_TARGETS = {
     "07-2013-mul-2022.md": "ch07",
     "08-milon-munachim-vecheck-list.md": "ch08",
     "09-pentesting-veiso27001.md": "ch09",
+    "10-protokolim-mefurtim-cwe.md": "ch10",
+    "11-zero-day-research.md": "ch11",
     "README.md": "toc",
     "tools/README.md": "appendix-tools",
     "../02-mivne-tekhen-27001.md": "ch02",
