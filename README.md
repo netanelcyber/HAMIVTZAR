@@ -150,10 +150,16 @@ iso27001-book/                    Hebrew summary book on ISO/IEC 27001 and the I
                                      standards, certification process, practical rollout, 2013 vs 2022
   08-milon-munachim-vecheck-list.md Glossary + implementation/certification checklist
   09-pentesting-veiso27001.md        Pentesting chapter: maps pentest to Annex A controls, test types,
-                                     methodologies (PTES/OWASP/NIST/OSSTMM), ROE/ethics, and a worked
-                                     example converting this repo's own pentest-milatova findings into
-                                     a risk register
+                                     methodologies (PTES/OWASP/NIST/OSSTMM/CompTIA PenTest+), ROE/ethics,
+                                     a worked example converting this repo's own pentest-milatova findings
+                                     into a risk register, international standards (CREST/TIBER-EU/DORA)
+                                     and Israeli regulatory context
+  10-protokolim-mefurtim-cwe.md      Detailed step-by-step testing protocol for each of the 41 CWEs
+  11-zero-day-research.md            Zero-day discovery methodology framed for risk management (fuzzing,
+                                     code review, patch diffing, coordinated disclosure), not exploit dev
   tools/cwe_risk_calculator.py      Offline CWE-informed Likelihood x Impact risk scorer (ISO/IEC 27005-style)
+  tools/malicious_code_triage.py    Static (never-executes) PHP/Python/JS-TS triage helper for suspicious
+                                     files found during an engagement (webshells, npm install hooks, etc.)
 security_classifier/              Defensive static + optional dynamic classifier for Python code
   features.py                       Static AST-based feature extraction (never executes code)
   dynamic_features.py               Parses a runtime trace you collected (never executes code)
