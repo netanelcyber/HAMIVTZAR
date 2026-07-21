@@ -151,7 +151,13 @@ security_classifier/              Defensive static + optional dynamic classifier
   classify.py / explain.py          Score a file; natural-language summary of the finding
 scripts/fetch_benign_corpus.py    Clones legitimate SDKs for classifier training data
 scripts/sandboxed_trace.sh        Template: collect a runtime trace on YOUR isolated sandbox
-tests/                            Offline tests for ingestion, retrieval, backends, and the classifier
+pacs_iso27799_audit/              ISO 27799 compliance checklist scorer for PACS/DICOM configs (no network access)
+  controls.py                       Control catalog across the 14 ISO 27799 domains
+  audit.py                          Scores a config JSON against the catalog; CLI + Markdown report
+  risk_model.py                     Logistic-regression risk indicator over audit results (synthetic training data)
+  sample_config.json                Fictional/illustrative demo config only -- not real data
+  lab/                               Local, loopback-only rehearsal target for the patient-self-service-login controls
+tests/                            Offline tests for ingestion, retrieval, backends, the classifier, and the audit toolkit + lab + risk model
 ```
 
 ## How it works
@@ -268,6 +274,51 @@ trace is supplied, `--explain` treats observed behavior (an actual outbound
 connection, an actual write to an autostart location) as stronger evidence
 than static structure alone.
 
+## PACS ISO 27799 compliance audit toolkit
+
+`pacs_iso27799_audit/` is a **documentation/config checklist scorer** for
+PACS/DICOM imaging environments, organized around the 14 control domains
+ISO 27799 uses to apply ISO/IEC 27002 to health information (access control,
+cryptography, physical security, operations, communications, supplier
+relationships, business continuity, and more). See
+`pacs_iso27799_audit/README.md` for full scope, but the essential points:
+
+- It **never makes a network connection** — it scores a JSON file you (or an
+  authorized assessor) fill in describing a deployment's configuration.
+  It does not scan, probe, or connect to any real or simulated system.
+- `sample_config.json` is **entirely fictional demo data** — not real
+  information about any specific hospital's actual system.
+- It is a first-pass checklist, not a certification, and not a substitute
+  for a qualified assessor working from the licensed standard.
+
+```bash
+python -m pacs_iso27799_audit.audit --config pacs_iso27799_audit/sample_config.json
+python -m pacs_iso27799_audit.audit --config pacs_iso27799_audit/sample_config.json --output report.md
+python -m pacs_iso27799_audit.audit --list-controls
+
+# optional: quantitative risk indicator (logistic regression over audit results)
+pip install scikit-learn
+python -m pacs_iso27799_audit.risk_model --config pacs_iso27799_audit/sample_config.json
+```
+
+`risk_model.py` is trained only on a small hand-authored **synthetic**
+dataset (no real incident history) — same discipline as
+`security_classifier`'s placeholder data. It's a demonstration of the
+method (domain risk features → logistic regression), not a calibrated
+real-world probability.
+
+This project intentionally does not include active network reconnaissance
+or exploitation tooling aimed at any real, named production system without
+on-file written authorization from that system's owner (the same bar as
+`pentest-milatova/scope.md`). See "On penetration testing" in
+`pacs_iso27799_audit/README.md` for the reasoning and the safe alternatives:
+a local, disposable DICOM server as a general rehearsal target, and
+`pacs_iso27799_audit/lab/` — a small local mock of a patient
+self-service login (date-of-birth + short access code) for rehearsing
+brute-force/lockout testing technique against something you run yourself,
+never a real system. Its rehearsal client hard-refuses any target other than
+`127.0.0.1`/`localhost`.
+
 ## Tests
 
 ```bash
@@ -276,7 +327,10 @@ python -m unittest discover -s tests -v
 
 Covers tokenization, chunking, BM25 ranking, index save/load round-tripping,
 the extractive backend, backend resolution (including that `auto` never
-selects the online Claude backend), and the security classifier's feature
-extraction / dataset assembly / training pipeline. Runs fully offline; the two
-end-to-end training tests skip automatically if `scikit-learn`/`joblib` aren't
-installed.
+selects the online Claude backend), the security classifier's feature
+extraction / dataset assembly / training pipeline, the PACS ISO 27799 audit
+toolkit's control catalog and scoring logic, the local rehearsal lab
+(including a real loopback-only HTTP round trip), and the risk model's
+feature extraction and synthetic dataset. Runs fully offline; the security
+classifier's two end-to-end training tests and the risk model's model-fitting
+tests skip automatically if `scikit-learn`/`joblib` aren't installed.
