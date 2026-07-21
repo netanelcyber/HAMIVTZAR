@@ -25,7 +25,17 @@ python3 cwe_risk_calculator.py score --cwe CWE-89 --asset "פורטל לקוחו
 
 # ניקוד קובץ ממצאים שלם (JSON או CSV) והפקת רשומת סיכונים ממוינת
 python3 cwe_risk_calculator.py report --input sample_findings.json --output risk_register.csv
+
+# פרוטוקול בדיקת חדירה (test protocol) עבור CWE ספציפי, או עבור כל 41 ה-CWE-ים
+python3 cwe_risk_calculator.py protocol --cwe CWE-862
+python3 cwe_risk_calculator.py protocol
 ```
+
+כל רשומת CWE בטבלת הבסיס כוללת גם שדה `test_protocol` — תיאור קונקרטי של
+טכניקת הבדיקה שבודק חדירה מורשה מפעיל כדי לאמת את קיום החולשה בפועל (לא
+רק ניקוד חומרה תיאורטי). השדה הזה מופיע גם בפלט `score`/`report`, כך
+שממצא מנוקד ופרוטוקול האימות שלו יוצאים מאותה הרצה. ראו פרק 9, סעיף 9.14
+בספר לטבלה המלאה (זהה לזו שבקוד) ולהסבר על הרעיון.
 
 מבנה קובץ ממצאים (JSON או CSV) לפקודת `report`: שדה חובה `cwe_id`, ושדות
 אופציונליים `asset`, `likelihood`, `impact_c`, `impact_i`, `impact_a`,

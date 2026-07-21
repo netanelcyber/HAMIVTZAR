@@ -65,6 +65,15 @@ class FindingResolveTests(unittest.TestCase):
             for key in ("likelihood", "impact_c", "impact_i", "impact_a"):
                 self.assertTrue(1 <= data[key] <= 5, f"{cwe_id}.{key} out of range")
 
+    def test_every_baseline_entry_has_a_nonempty_test_protocol(self):
+        for cwe_id, data in CWE_BASELINE.items():
+            self.assertIn("test_protocol", data, f"{cwe_id} missing test_protocol")
+            self.assertTrue(data["test_protocol"].strip(), f"{cwe_id} has an empty test_protocol")
+
+    def test_resolve_includes_the_baseline_test_protocol(self):
+        result = Finding(cwe_id="CWE-89").resolve()
+        self.assertEqual(result["test_protocol"], CWE_BASELINE["CWE-89"]["test_protocol"])
+
 
 if __name__ == "__main__":
     unittest.main()
