@@ -17,3 +17,10 @@
 # see README "Security classifier" section) needs:
 #     pip install scikit-learn joblib
 # Feature extraction itself (security_classifier/features.py) is stdlib-only.
+#
+# ldap-pentest-toolkit/ (read-only LDAP recon tool, see its own README) needs:
+#     pip install ldap3
+# Its tools/dns_discovery.sh is plain bash + `dig` (apt install dnsutils);
+# `curl` + `jq` (crt.sh lookup -- python3 also works as a jq fallback),
+# `ldapsearch` (apt install ldap-utils), and `fierce` (pip install fierce)
+# are optional extras it shells out to, all gracefully skipped if absent.
