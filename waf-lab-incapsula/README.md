@@ -38,6 +38,12 @@ below have something real and reproducible to defeat.
     stealth-headless fix.
 - `evidence/` — JSON output from the tools above (nonce, forged token,
   final status/cookies).
+- **Analysis Tools** (see `tools/`):
+  - `deobfuscator.py` — Extract and analyze obfuscated JavaScript
+  - `rc4_decryptor.py` — Analyze RC4 encryption patterns and decrypt payloads
+  - `anti_detection_analyzer.py` — Identify bot-detection mechanisms in code
+- **Documentation**:
+  - `OBFUSCATION_ANALYSIS.md` — Comprehensive guide to analyzing obfuscated WAF sensors
 
 ## Running it
 
@@ -82,3 +88,45 @@ simple — this lab is about the *mechanics* of a JS-challenge WAF (cookie
 gating, nonce-bound tokens, signature/header heuristics, and the two classic
 ways around a JS challenge) rather than about cracking something
 cryptographically hard.
+
+## Analyzing Obfuscated WAF Sensors
+
+This lab includes tools to deobfuscate and analyze real-world obfuscated bot-detection and anti-automation scripts:
+
+### Deobfuscation Tools
+
+**1. Extract String Arrays & Decode Hex**
+```bash
+python3 tools/deobfuscator.py sensor.js
+```
+Extracts and decodes obfuscated string arrays, identifies suspicious patterns (anti-debugging, RC4 usage, etc.)
+
+**2. Analyze RC4 Encryption Patterns**
+```bash
+python3 tools/rc4_decryptor.py sensor.js
+python3 tools/rc4_decryptor.py sensor.js "known_key"  # decrypt with key
+```
+Identifies RC4 encryption, extracts payloads, attempts decryption.
+
+**3. Identify Detection Mechanisms**
+```bash
+python3 tools/anti_detection_analyzer.py sensor.js
+```
+Maps out what anti-automation checks are present and suggests bypass strategies:
+- Headless browser detection
+- Browser automation detection  
+- Node.js environment checks
+- Timing-based detection
+- Device fingerprinting
+- Geolocation checks
+- Console/debugger disabling
+
+### Comprehensive Analysis Guide
+
+See `OBFUSCATION_ANALYSIS.md` for:
+- Common obfuscation patterns and how to bypass them
+- RC4 encryption analysis
+- Anti-debugging techniques
+- Cookie-based challenge reverse-engineering
+- Real-world bypass examples
+- Legal/ethical use guidelines
