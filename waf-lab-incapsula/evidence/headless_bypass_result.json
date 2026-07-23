@@ -1,0 +1,10 @@
+{
+  "url": "http://localhost:8080/",
+  "title": "",
+  "finalText": "Protected Origin\n\nYou reached the real backend. In production this host would not be directly reachable -- only the WAF proxy's public IP would be.\n\nLAB_FLAG{waf_bypass_incapsula_lab}",
+  "cookieNames": [
+    "waf_sess",
+    "incap_ses_lab",
+    "visid_incap_lab"
+  ]
+}

@@ -1,0 +1,14 @@
+services:
+  backend:
+    build: ./backend
+    expose:
+      - "5001"
+
+  waf:
+    build: ./waf-proxy
+    environment:
+      - BACKEND_URL=http://backend:5001
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend

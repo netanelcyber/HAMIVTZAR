@@ -1,0 +1,8 @@
+{
+  "url": "http://localhost:8080/",
+  "nonce": "fc975355f835",
+  "forged_token": "NTM4ZjU1MzU3OWNmfDZkNmE0MDNlM2MzYTNjM2M2ZDNmM2EzYw==",
+  "challenge_status": 200,
+  "final_status": 200,
+  "final_body_excerpt": "<h1>Protected Origin</h1><p>You reached the real backend. In production this host would not be directly reachable -- only the WAF proxy's public IP would be.</p><p>LAB_FLAG{waf_bypass_incapsula_lab}</p>"
+}
