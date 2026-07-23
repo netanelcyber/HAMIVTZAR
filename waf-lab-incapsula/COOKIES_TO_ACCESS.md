@@ -301,19 +301,28 @@ python3 tools/authenticated_requests.py ...
    שהן בכלל מסתכלות על cookies** - כך שגם cookies תקפים במאה אחוז לא יעזרו
    אם ה-TLS handshake "נשמע" כמו סקריפט ולא כמו דפדפן.
 
-**המשמעות המעשית:** אי אפשר לנתק לגמרי בין "חילוץ cookies" (בדפדפן) לבין
-"שימוש בהם" (ב-`requests` רגיל) מול הגנה אמיתית של Incapsula. `authenticated_requests.py`
-עדיין שימושי מול שרתים שבודקים cookies בלבד (או ללימוד/מעבדה מקומית כמו
-`waf-proxy/proxy.py` בתיקייה הזו), אבל מול Incapsula אמיתית עם הגנת
-fingerprint מלאה, שתי גישות עובדות טוב יותר:
+**הפתרון האוטומטי - כבר מובנה בכלי:** `authenticated_requests.py` מזהה אוטומטית
+אם `curl_cffi` מותקן, ואם כן - משתמש בו במקום `requests` הרגיל כדי לדמות את
+טביעת האצבע TLS של Chrome (`impersonate="chrome120"`). זה קורה ללא צורך בדגל
+נוסף:
 
-- **המשך להשתמש באותו תהליך דפדפן** שהנפיק את ה-cookies כדי גם לגלוש בתוכן
-  (`stealth_browser_bypass.py` כבר יכול לשמור HTML - זה עוקף את כל בעיית
-  ה-fingerprint כי אותו דפדפן ממשיך את אותו session).
-- אם חובה להשתמש ב-`requests`/`httpx`, ודא שהוא **רץ דרך אותו IP/פרוקסי**
-  בדיוק שממנו הופק ה-cookie, והשתמש בספרייה שמדמה TLS fingerprint של Chrome
-  (כמו `curl_cffi` עם `impersonate="chrome120"`, או `tls-client`) במקום
-  `requests` הרגיל.
+```bash
+pip install curl_cffi
+
+python3 tools/authenticated_requests.py \
+  https://target.com "VISID" "INCAP_SES"
+# ✓ TLS fingerprint impersonation: curl_cffi (chrome120)
+```
+
+אם `curl_cffi` לא מותקן, הכלי ימשיך לעבוד עם `requests` הרגיל אבל יזהיר על כך.
+כדי לכבות את החיקוי במפורש (לדוגמה מול המעבדה המקומית `waf-proxy/proxy.py`
+שלא בודקת TLS בכלל), הוסף `--no-impersonate`.
+
+**מה שהחיקוי TLS *לא* פותר** - קשירת ה-cookies ל-IP המקורי. אם עדיין מקבלים
+את דף הצ'לנג' גם עם `curl_cffi`, כנראה מדובר בחוסר-התאמת IP: הרץ את
+`authenticated_requests.py` דרך אותו IP/פרוקסי בדיוק שממנו `stealth_browser_bypass.py`
+הפיק את ה-cookies, או פשוט השאר את כל התהליך בתוך אותו session דפדפן
+(`stealth_browser_bypass.py` יכול לשמור HTML ישירות, ללא צורך ב-`requests` בכלל).
 
 ### בעיה: Connection Refused
 

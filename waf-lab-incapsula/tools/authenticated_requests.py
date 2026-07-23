@@ -5,6 +5,13 @@ Authenticated Requests with Incapsula Cookies
 Once you have valid Incapsula cookies (from stealth_browser_bypass.py),
 use this script to make authenticated requests to protected sites.
 
+Optional: pip install curl_cffi
+    If installed, requests are sent with a Chrome TLS (JA3/JA4) fingerprint
+    instead of Python's default one. Incapsula/Imperva fingerprint TLS
+    handshakes as an extra layer on top of cookies, so plain `requests`
+    often gets re-challenged even with valid cookies. Pass --no-impersonate
+    to force plain requests.
+
 Usage:
     python3 authenticated_requests.py <url> <visid_cookie> <incap_ses_cookie>
     python3 authenticated_requests.py https://target.com "ej+FBook..." "89t5NrUh..."
@@ -17,28 +24,52 @@ from argparse import ArgumentParser
 from typing import Dict, Optional
 from urllib.parse import urlparse
 
+try:
+    from curl_cffi import requests as curl_requests
+    CURL_CFFI_AVAILABLE = True
+except ImportError:
+    CURL_CFFI_AVAILABLE = False
+
+# Browser TLS fingerprint to impersonate when curl_cffi is available.
+# Must stay consistent with the Chrome version in the User-Agent header below.
+IMPERSONATE_PROFILE = "chrome120"
+
 
 class AuthenticatedRequests:
     """Make authenticated requests with Incapsula cookies."""
-    
-    def __init__(self, url: str, visid_cookie: str, incap_ses_cookie: str):
+
+    def __init__(self, url: str, visid_cookie: str, incap_ses_cookie: str, impersonate: bool = True):
         """
         Initialize with target URL and cookies.
-        
+
         Args:
             url: Target URL
             visid_cookie: visid_incap_* cookie value
             incap_ses_cookie: incap_ses_* cookie value
+            impersonate: If True and curl_cffi is installed, match Chrome's TLS
+                (JA3/JA4) fingerprint instead of Python's default TLS stack.
+                Incapsula/Imperva fingerprint at the TLS layer, so valid cookies
+                sent over a non-browser TLS handshake still get re-challenged.
         """
         self.url = url
         self.visid_cookie = visid_cookie
         self.incap_ses_cookie = incap_ses_cookie
-        
+        self.use_curl_cffi = impersonate and CURL_CFFI_AVAILABLE
+
         # Extract cookie domain/ID from visid cookie (format: visid_incap_XXXX)
         self.cookie_domain = self._extract_domain()
-        
+
         # Build session
-        self.session = requests.Session()
+        if self.use_curl_cffi:
+            self.session = curl_requests.Session(impersonate=IMPERSONATE_PROFILE)
+            print(f"✓ TLS fingerprint impersonation: curl_cffi ({IMPERSONATE_PROFILE})")
+        else:
+            self.session = requests.Session()
+            if impersonate and not CURL_CFFI_AVAILABLE:
+                print(
+                    "⚠️ curl_cffi not installed - using Python's default TLS "
+                    "fingerprint (pip install curl_cffi for Chrome impersonation)"
+                )
         self._setup_session()
     
     def _extract_domain(self) -> str:
@@ -164,15 +195,23 @@ def main():
     parser.add_argument('--method', default='GET', help='HTTP method (GET, POST, etc.)')
     parser.add_argument('--output', help='Save response to file')
     parser.add_argument('--json-output', help='Save result metadata to JSON')
-    
+    parser.add_argument(
+        '--no-impersonate', action='store_true',
+        help='Disable curl_cffi Chrome TLS impersonation, use plain requests '
+             '(fine for the local lab WAF, which does not fingerprint TLS)'
+    )
+
     args = parser.parse_args()
-    
+
     print("="*80)
     print("AUTHENTICATED REQUEST WITH INCAPSULA COOKIES")
     print("="*80 + "\n")
-    
+
     # Create session
-    auth = AuthenticatedRequests(args.url, args.visid, args.incap_ses)
+    auth = AuthenticatedRequests(
+        args.url, args.visid, args.incap_ses,
+        impersonate=not args.no_impersonate,
+    )
     
     # Make request
     result = auth.request(args.method, args.path)
