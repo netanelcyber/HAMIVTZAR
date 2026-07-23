@@ -125,10 +125,11 @@ class AuthenticatedRequests:
             
             if response.status_code == 200:
                 print("✓ SUCCESS - Got through!")
-                if result['is_text']:
-                    print(f"✓ Content preview: {response.text[:200]}...")
             else:
                 print(f"⚠️ Status {response.status_code}")
+
+            if result['is_text']:
+                print(f"  Content preview: {response.text[:300]!r}")
             
             return result
             
