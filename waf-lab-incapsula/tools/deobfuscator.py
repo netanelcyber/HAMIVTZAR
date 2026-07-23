@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 JavaScript obfuscation analysis and deobfuscation tool.
 
 Handles common obfuscation patterns found in WAF sensors:
@@ -26,7 +26,7 @@ class JSDeobfuscator:
         self.suspicious_patterns = []
 
     def decode_hex_escape_sequences(self) -> Dict[int, str]:
-        """
+        r"""
         Extract and decode hex escape sequences (\x**).
         Common in array-based string obfuscation.
         """
@@ -44,7 +44,7 @@ class JSDeobfuscator:
         return decoded
 
     def extract_string_arrays(self) -> List[str]:
-        """
+        r"""
         Extract and decode string arrays.
         Pattern: var _0x**** = ['\\x**\\x**', '\\x**\\x**', ...]
         """
