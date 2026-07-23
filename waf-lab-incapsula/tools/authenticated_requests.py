@@ -141,13 +141,19 @@ class AuthenticatedRequests:
                 response = self.session.request(method, full_url, **kwargs)
             
             # Extract info
+            is_text = 'text' in response.headers.get('content-type', '')
             result = {
                 'status': response.status_code,
                 'url': response.url,
                 'headers': dict(response.headers),
                 'content_length': len(response.content),
-                'is_text': 'text' in response.headers.get('content-type', ''),
-                'content': response.text[:1000] if 'text' in response.headers.get('content-type', '') else None,
+                'is_text': is_text,
+                # Full body, for --output / programmatic use (e.g. extracting an
+                # iframe src from an Incapsula challenge/block page, which can
+                # run well past 1000 chars once incident_id/cinfo are included).
+                'full_content': response.text if is_text else None,
+                # Small preview, safe to embed in --json-output metadata.
+                'content': response.text[:1000] if is_text else None,
                 'success': response.status_code == 200
             }
             
@@ -216,15 +222,15 @@ def main():
     # Make request
     result = auth.request(args.method, args.path)
     
-    # Save output if requested
-    if args.output and result.get('content'):
+    # Save output if requested (full, untruncated body)
+    if args.output and result.get('full_content'):
         with open(args.output, 'w') as f:
-            f.write(result['content'])
-        print(f"\n✓ Content saved to: {args.output}")
-    
+            f.write(result['full_content'])
+        print(f"\n✓ Content saved to: {args.output} ({len(result['full_content']):,} chars)")
+
     if args.json_output:
-        # Remove large content from JSON
-        json_result = {k: v for k, v in result.items() if k != 'content'}
+        # Remove large content from JSON, keep only the short preview
+        json_result = {k: v for k, v in result.items() if k != 'full_content'}
         with open(args.json_output, 'w') as f:
             json.dump(json_result, f, indent=2, default=str)
         print(f"✓ Metadata saved to: {args.json_output}")
