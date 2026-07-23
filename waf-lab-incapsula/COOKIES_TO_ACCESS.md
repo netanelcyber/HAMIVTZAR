@@ -275,6 +275,46 @@ python3 tools/stealth_browser_bypass.py https://target.com --json-output new_coo
 python3 tools/authenticated_requests.py ...
 ```
 
+### בעיה: Status 503 + תוכן HTML עם `<iframe id="main-iframe"...>`
+
+**זו לא שגיאת שרת - זה דף הצ'לנג'/CAPTCHA של Incapsula עצמה.** אם ה-preview
+מציג משהו שמתחיל ב:
+
+```html
+<html style="height:100%"><head><META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">...
+<body style="margin:0px;height:100%"><iframe id=...
+```
+
+זו החתימה הידועה של Incapsula שמנפיקה מחדש אתגר/CAPTCHA - כלומר ה-cookies
+**נדחו**, למרות שהם תקפים.
+
+**הסיבה השורשית - שני דברים שקשה לזייף:**
+
+1. **קשירת cookies ל-IP.** `visid_incap_*` ו-`incap_ses_*` קשורים לכתובת ה-IP
+   שממנה הם הונפקו. אם `stealth_browser_bypass.py` רץ מ-IP אחד (למשל שרת/פרוקסי
+   מסוים) ו-`authenticated_requests.py` רץ מ-IP אחר - Incapsula מזהה את
+   חוסר-ההתאמה ומחזירה צ'לנג' מחדש במקום התוכן.
+
+2. **טביעת אצבע TLS (JA3/JA4) - בדרך כלל הגורם המרכזי.** ספריית `requests`
+   ב-Python מבצעת TLS handshake בסדר cipher suites/extensions שונה לגמרי
+   מ-Chrome אמיתי. Incapsula/Imperva בודקות טביעת אצבע TLS **כשכבה נוספת לפני
+   שהן בכלל מסתכלות על cookies** - כך שגם cookies תקפים במאה אחוז לא יעזרו
+   אם ה-TLS handshake "נשמע" כמו סקריפט ולא כמו דפדפן.
+
+**המשמעות המעשית:** אי אפשר לנתק לגמרי בין "חילוץ cookies" (בדפדפן) לבין
+"שימוש בהם" (ב-`requests` רגיל) מול הגנה אמיתית של Incapsula. `authenticated_requests.py`
+עדיין שימושי מול שרתים שבודקים cookies בלבד (או ללימוד/מעבדה מקומית כמו
+`waf-proxy/proxy.py` בתיקייה הזו), אבל מול Incapsula אמיתית עם הגנת
+fingerprint מלאה, שתי גישות עובדות טוב יותר:
+
+- **המשך להשתמש באותו תהליך דפדפן** שהנפיק את ה-cookies כדי גם לגלוש בתוכן
+  (`stealth_browser_bypass.py` כבר יכול לשמור HTML - זה עוקף את כל בעיית
+  ה-fingerprint כי אותו דפדפן ממשיך את אותו session).
+- אם חובה להשתמש ב-`requests`/`httpx`, ודא שהוא **רץ דרך אותו IP/פרוקסי**
+  בדיוק שממנו הופק ה-cookie, והשתמש בספרייה שמדמה TLS fingerprint של Chrome
+  (כמו `curl_cffi` עם `impersonate="chrome120"`, או `tls-client`) במקום
+  `requests` הרגיל.
+
 ### בעיה: Connection Refused
 
 **סיבות:**
