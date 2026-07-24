@@ -1,0 +1,13 @@
+anglistim.ac.il
+ariel.ac.il
+army.mil.il
+bezalel.ac.il
+bgu.ac.il
+biu.ac.il
+haifa.ac.il
+huji.ac.il
+mta.ac.il
+openu.ac.il
+shenkar.ac.il
+technion.ac.il
+tlvuniversity.ac.il
