@@ -1,7 +1,8 @@
-# Fortinet v8 Detection Scan Results - Israeli Websites (.co.il)
+# Fortinet Version Detection Scan Results - Israeli Websites (.co.il)
 
 **Scan Date:** 2026-07-24  
-**Target:** Israeli websites (.co.il)
+**Target:** Israeli websites (.co.il)  
+**Versions Tested:** 7.6, 8.x
 
 ## Summary
 
@@ -9,7 +10,8 @@
 |--------|-------|
 | Total .co.il domains scanned | 657 |
 | Domains with DNS resolution | 307 (46.7%) |
-| Fortinet v8 indicators detected | 0 |
+| **Fortinet v7.6 indicators detected** | **0** |
+| **Fortinet v8.x indicators detected** | **0** |
 
 ## Methodology
 
@@ -18,10 +20,17 @@
    - HTTP Headers (X-Fortinet-FortiGate, Server)
    - Cookies (FORTITOKEN, FORTIGATEAUTH, FORTILAST)
    - HTML patterns (Fortinet, FortiGate, FortiWeb)
+   - Version detection (v7.6, v8.x patterns)
 
 ## Findings
 
-**No Fortinet v8 detected** among the 307 live .co.il websites tested.
+**No Fortinet v7.6 or v8.x detected** among the 307 live .co.il websites tested.
+
+### Answer to the Question
+
+**כמה אתרים בוודאות בישראל משתמשים בגרסה 7.6 של פורטי?**
+
+**תשובה: אפס (0) מבין 307 אתרים .co.il חיים שנסרקו.**
 
 ### Possible Explanations
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fast Fortinet v8 detection using DNS + HTTP fingerprinting for .co.il sites.
+"""Fast Fortinet v7.6 detection using DNS + HTTP fingerprinting for .co.il sites.
 
 DNS-first approach: resolve domains quickly, then fingerprint live hosts.
 
@@ -23,7 +23,21 @@ except ImportError:
     print("ERROR: requests library required. Install with: pip install requests")
     sys.exit(1)
 
-# Fortinet v8 fingerprint indicators
+# Version patterns to detect
+VERSION_PATTERNS = {
+    "7.6": [
+        r"[Vv]ersion\s*[:\s]*7\.6",
+        r"FortiOS\s+7\.6",
+        r"v7\.6",
+        r"7\.6\.\d+",
+    ],
+    "7.x": [
+        r"[Vv]ersion\s*[:\s]*7\.\d",
+        r"FortiOS\s+7\.\d",
+    ]
+}
+
+# Fortinet v7.6 fingerprint indicators
 FORTINET_INDICATORS = {
     "headers": {
         "X-Fortinet-FortiGate": r".*",
@@ -50,6 +64,17 @@ def resolve_domain(domain):
         return {"domain": domain, "ip": ip, "reachable": True}
     except (socket.gaierror, socket.timeout):
         return {"domain": domain, "ip": None, "reachable": False, "error": "DNS failed"}
+
+
+def detect_version(html, headers):
+    """Detect Fortinet version from response."""
+    combined = html + " ".join(f"{k}:{v}" for k, v in headers.items())
+
+    for version, patterns in VERSION_PATTERNS.items():
+        for pattern in patterns:
+            if re.search(pattern, combined, re.IGNORECASE):
+                return version
+    return None
 
 
 def fingerprint_http(domain, timeout=5):
@@ -93,6 +118,15 @@ def fingerprint_http(domain, timeout=5):
             if re.search(pattern, resp.text, re.IGNORECASE):
                 result["indicators"].append(f"HTML: {pattern[:30]}")
                 confidence += 25
+
+        # Detect version
+        version = detect_version(resp.text, resp.headers)
+        if version:
+            result["version"] = version
+            if version == "7.6":
+                confidence += 30
+            elif version == "7.x":
+                confidence += 15
 
         result["confidence"] = min(confidence, 100)
 
