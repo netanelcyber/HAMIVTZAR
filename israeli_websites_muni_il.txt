@@ -1,0 +1,10 @@
+ashdod.muni.gov.il
+beer-sheva.muni.gov.il
+eilat.muni.gov.il
+jerusalem.muni.gov.il
+petach-tikva.muni.gov.il
+ramat-gan.muni.gov.il
+safed.muni.gov.il
+tiberias.muni.gov.il
+tlv.muni.gov.il
+zichron-yaakov.muni.gov.il

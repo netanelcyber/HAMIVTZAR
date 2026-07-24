@@ -1,0 +1,15 @@
+archive.org.il
+beitar.org.il
+beithatikva.org.il
+hapoel.org.il
+hatikva.org.il
+iaa.org.il
+ica.org.il
+jnf.org.il
+kan.org.il
+kfi.org.il
+kibbutzim.org.il
+maccabi.org.il
+palmach.org.il
+sherim.org.il
+yad-vashem.org.il
