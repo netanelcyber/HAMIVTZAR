@@ -1,0 +1,225 @@
+version: '3.9'
+
+services:
+  # Active Directory / Samba DC
+  ad-dc:
+    image: samba:latest
+    container_name: factory-ad-dc
+    hostname: FACTORY-DC
+    environment:
+      DOMAIN: factory.local
+      REALM: FACTORY.LOCAL
+      PASSWORD: P@ssw0rd123!
+      ADMIN_USER: Administrator
+      ADMIN_PASSWORD: P@ssw0rd123!
+    ports:
+      - "53:53"
+      - "53:53/udp"
+      - "88:88"
+      - "88:88/udp"
+      - "135:135"
+      - "139:139"
+      - "389:389"
+      - "389:389/udp"
+      - "445:445"
+      - "464:464"
+      - "464:464/udp"
+      - "636:636"
+      - "3268:3268"
+      - "3269:3269"
+    volumes:
+      - ad_data:/var/lib/samba
+      - ad_config:/etc/samba
+      - ./configs/smb.conf:/etc/samba/smb.conf:ro
+      - ./scripts/provision-users.sh:/provision-users.sh:ro
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.10
+    healthcheck:
+      test: ["CMD", "smbclient", "-L", "localhost", "-U%", "-m", "SMB3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # SMB File Server
+  smb-server:
+    image: dperson/samba:latest
+    container_name: factory-smb
+    hostname: FACTORY-SMB
+    environment:
+      TZ: 'UTC'
+      WORKGROUP: 'FACTORY'
+    ports:
+      - "445:445"
+      - "139:139"
+    volumes:
+      - ./configs/smbshares.conf:/etc/samba/smb.conf:ro
+      - smb_shares:/srv/shares
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.20
+    depends_on:
+      ad-dc:
+        condition: service_healthy
+
+  # Manufacturing Execution System (MES)
+  mes-db:
+    image: postgres:15-alpine
+    container_name: factory-mes-db
+    environment:
+      POSTGRES_DB: manufacturing
+      POSTGRES_USER: mes_admin
+      POSTGRES_PASSWORD: MESp@ssw0rd123!
+    volumes:
+      - mes_db_data:/var/lib/postgresql/data
+      - ./scripts/init-mes-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.30
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mes_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MES Application
+  mes-app:
+    build:
+      context: ./docker/mes
+      dockerfile: Dockerfile
+    container_name: factory-mes-app
+    environment:
+      DB_HOST: mes-db
+      DB_PORT: 5432
+      DB_NAME: manufacturing
+      DB_USER: mes_admin
+      DB_PASSWORD: MESp@ssw0rd123!
+      MES_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      mes-db:
+        condition: service_healthy
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.31
+    volumes:
+      - ./data:/app/data
+
+  # SCADA/OT Simulator
+  scada-simulator:
+    build:
+      context: ./docker/scada
+      dockerfile: Dockerfile
+    container_name: factory-scada
+    environment:
+      OT_NETWORK: "10.0.2.0/24"
+      PLCS_COUNT: 5
+      SENSORS_COUNT: 50
+    ports:
+      - "502:502"
+      - "8001:8001"
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.40
+      ot_network:
+        ipv4_address: 10.0.2.10
+    volumes:
+      - ./data/scada:/data
+
+  # OPC UA Server (for PLC communication)
+  opcua-server:
+    build:
+      context: ./docker/opcua
+      dockerfile: Dockerfile
+    container_name: factory-opcua
+    environment:
+      OPCUA_ENDPOINT: "opc.tcp://0.0.0.0:4840"
+    ports:
+      - "4840:4840"
+      - "8002:8002"
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.41
+      ot_network:
+        ipv4_address: 10.0.2.11
+    depends_on:
+      - mes-db
+
+  # Email/Collaboration Server
+  mail-server:
+    image: mailhog:latest
+    container_name: factory-mail
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.50
+
+  # Web Portal (Dashboard)
+  web-portal:
+    build:
+      context: ./docker/web-portal
+      dockerfile: Dockerfile
+    container_name: factory-portal
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./configs/portal:/app/config
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.60
+    depends_on:
+      - ad-dc
+
+  # Logging/Monitoring (ELK Stack - simplified)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    container_name: factory-elastic
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elastic_data:/usr/share/elasticsearch/data
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.70
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.0
+    container_name: factory-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      factory_network:
+        ipv4_address: 10.0.1.71
+
+networks:
+  factory_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.1.0/24
+  ot_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.2.0/24
+
+volumes:
+  ad_data:
+  ad_config:
+  smb_shares:
+  mes_db_data:
+  elastic_data:
