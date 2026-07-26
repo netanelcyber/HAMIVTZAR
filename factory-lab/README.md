@@ -1,47 +1,67 @@
-# 🏭 Factory Lab - Comprehensive Training Environment
+# 🏭 Factory Lab - Windows Core Manufacturing Environment
 
-**Complete factory simulation with 50 employees, Active Directory, security-critical systems, and sensitive data handling.**
+**Enterprise-grade factory simulation with 50 employees, Windows Server 2022 infrastructure, SQL Server, OPC-UA, and SIL 3 safety systems.**
 
 ## Overview
 
 Factory Lab is a production-grade training environment that simulates a complete manufacturing facility with:
 
 - **👥 50 Factory Employees** with realistic departments and roles
-- **🔐 Active Directory (Samba)** with LDAP authentication
-- **📂 SMB File Sharing** with department-based access controls
-- **🤖 Manufacturing Systems**: MES, SCADA, OPC-UA, PLC simulators
-- **💾 Critical Databases**: PostgreSQL with encryption and RLS policies
-- **⚠️ Safety Systems**: Emergency stops, interlocks (SIL 3 rated)
-- **🔒 Sensitive Data**: Full encryption at rest/transit + audit trails
-- **📊 Monitoring**: Elasticsearch, Kibana, Prometheus
+- **🪟 Windows Server 2022** Active Directory with DHCP, DNS, PKI
+- **💾 SQL Server 2022** Manufacturing database with Historian tables
+- **🤖 Manufacturing Execution System (MES)** on IIS/ASP.NET
+- **📊 SCADA & OPC-UA Server** for industrial protocol communication
+- **⚠️ Safety Systems**: SIL 3 Emergency Stop with dual-channel monitoring
+- **🔒 Sensitive Data**: AES-256 encryption at rest/transit + immutable audit trail
+- **📂 Windows File Server** with NTFS permissions and DFS replication
 
-## Quick Start (5 minutes)
+## Quick Start (Windows-Based)
 
 ### Prerequisites
 
-- Docker & docker-compose
-- Linux (Ubuntu 20.04+ recommended)
-- 16GB+ RAM
-- 50GB+ disk space
+- 3x Windows Server 2022 Datacenter (or Hyper-V/KVM VMs)
+- 1x SQL Server 2022 Enterprise
+- 50x Windows 11 Pro/Enterprise workstations (or VMs)
+- 16GB+ RAM per server
+- 100GB+ disk per server
+- Network infrastructure (domain switch)
 
-### Deployment
+### Deployment Overview
 
-```bash
-# Clone repository
-cd /home/user/HAMIVTZAR
+**Phase 1: Active Directory (30 min)**
+```powershell
+# On FACTORY-DC01 (Windows Server 2022)
+# See WINDOWS_CORE_ARCHITECTURE.md section "PHASE 1: Active Directory Infrastructure"
 
-# Run initialization
-cd factory-lab
-chmod +x init-lab.sh
-./init-lab.sh
-
-# Wait for services to start (~2 minutes)
-docker-compose ps
-
-# Verify services
-curl http://localhost:8000/health  # MES
-curl http://localhost:8001/scada/health  # SCADA
+Rename-Computer -NewName "FACTORY-DC01" -Force -Restart
+Install-WindowsFeature -Name AD-Domain-Services, DNS, DHCP -IncludeManagementTools
+Install-ADDSForest -DomainName "factory.local" -DomainNetbiosName "FACTORY"
 ```
+
+**Phase 2: SQL Server (15 min)**
+```powershell
+# On FACTORY-SQL (Windows Server 2022 + SQL Server 2022)
+# Create Manufacturing database
+# Load schema from WINDOWS_CORE_ARCHITECTURE.md
+
+sqlcmd -i init-manufacturing-db.sql
+```
+
+**Phase 3: Manufacturing Systems (20 min)**
+```powershell
+# Deploy MES on IIS
+# Deploy OPC-UA server as Windows Service
+# Deploy Safety Controller as Windows Service
+```
+
+**Phase 4: Users & Workstations (4 hours)**
+```powershell
+# Create 50 AD users
+# Deploy 50 Windows 11 workstations
+# Domain-join and configure
+```
+
+**Total Setup Time: 5-6 hours** (can be parallelized)
 
 **Services available after deployment:**
 
@@ -55,59 +75,76 @@ curl http://localhost:8001/scada/health  # SCADA
 
 ---
 
-## Architecture
+## Architecture - Windows Core
 
-### Network Zones
+### Infrastructure Tiers
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ FACTORY LAB ENVIRONMENT                             │
-├──────────────────────────────────────────────────────┤
-│                                                     │
-│ ┌──────────────────────────────────────────────┐   │
-│ │ EXTERNAL (10.0.1.0/24)                      │   │
-│ │ - Active Directory (Samba)                   │   │
-│ │ - File Server (SMB)                          │   │
-│ │ - DNS/DHCP                                   │   │
-│ └──────────────────────────────────────────────┘   │
-│            ↓ (Restricted)                           │
-│ ┌──────────────────────────────────────────────┐   │
-│ │ SUPERVISORY (10.0.2.0/24)                   │   │
-│ │ - Manufacturing Execution System (MES)      │   │
-│ │ - Historian Database                        │   │
-│ │ - OPC-UA Server                             │   │
-│ └──────────────────────────────────────────────┘   │
-│            ↓ (Unidirectional)                       │
-│ ┌──────────────────────────────────────────────┐   │
-│ │ OPERATIONAL (10.0.3.0/24)                   │   │
-│ │ - PLC Controllers                           │   │
-│ │ - Modbus Gateway                            │   │
-│ │ - Safety Systems                            │   │
-│ └──────────────────────────────────────────────┘   │
-│            ↓ (Isolated)                             │
-│ ┌──────────────────────────────────────────────┐   │
-│ │ FIELD (10.0.4.0/24)                         │   │
-│ │ - Modbus Devices (simulated)                │   │
-│ │ - Sensors                                   │   │
-│ │ - Field Controllers                         │   │
-│ └──────────────────────────────────────────────┘   │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│ FACTORY LAB - WINDOWS SERVER 2022 CORE INFRASTRUCTURE     │
+└────────────────────────────────────────────────────────────┘
+
+TIER 1: DOMAIN & INFRASTRUCTURE
+├─ FACTORY-DC01 (Windows Server 2022)
+│  ├─ Active Directory DC/GC
+│  ├─ DNS Server (factory.local)
+│  ├─ DHCP Server (10.0.1.0/24)
+│  ├─ Certificate Authority (PKI)
+│  └─ Group Policy Management
+│
+├─ FACTORY-DC02 (Windows Server 2022 - Replica DC)
+│  ├─ Read-only AD replica
+│  ├─ Failover DNS/DHCP
+│  └─ High availability
+
+TIER 2: CORE MANUFACTURING SYSTEMS
+├─ FACTORY-MES (Windows Server 2022 + IIS)
+│  ├─ Manufacturing Execution System (ASP.NET 6)
+│  ├─ REST API endpoints (port 8000)
+│  └─ Business logic engine
+│
+├─ FACTORY-SCADA (Windows Server 2022)
+│  ├─ SCADA server (Beckhoff TwinCAT)
+│  ├─ OPC-UA server (port 4840)
+│  ├─ Modbus gateway (port 502)
+│  └─ Real-time monitoring
+
+TIER 3: DATABASE & STORAGE
+├─ FACTORY-SQL (Windows Server 2022 + SQL Server 2022)
+│  ├─ Manufacturing database
+│  ├─ Historian (time-series)
+│  ├─ Audit trail (immutable)
+│  ├─ Always-On Availability Group
+│  └─ Automated backups (7-year retention)
+│
+├─ FACTORY-FS (Windows Server 2022 - File Server)
+│  ├─ Department shares (NTFS)
+│  ├─ Home directories (50 users)
+│  ├─ DFS Replication
+│  └─ Backup storage
+
+TIER 4: WORKSTATIONS
+└─ WS-001 through WS-050 (Windows 11 Pro)
+   ├─ Domain-joined (factory.local)
+   ├─ Group Policy applied
+   ├─ Factory applications installed
+   └─ Department-specific access controls
 ```
 
-### Technology Stack
+### Technology Stack - Windows Native
 
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
-| AD/Auth | Samba 4 + LDAP | 50 users, role-based access |
-| File Server | Samba CIFS | Department SMB shares |
-| MES | Python FastAPI | Production monitoring |
-| Database | PostgreSQL | Manufacturing data + RLS |
-| SCADA | Python Modbus | Industrial control simulation |
-| OPC-UA | asyncua | Industrial protocol server |
-| Safety | Custom PLC logic | Emergency stops, interlocks |
-| Logging | Elasticsearch | Immutable audit trail |
-| Monitoring | Prometheus + Kibana | Metrics & visualization |
+| **AD/Auth** | Windows Server 2022 AD | 50 users, role-based access |
+| **File Server** | Windows File Server + NTFS | Department SMB shares |
+| **MES** | IIS + ASP.NET 6 | Production monitoring |
+| **Database** | SQL Server 2022 | Manufacturing data + encryption |
+| **SCADA** | TwinCAT/Beckhoff | Industrial control |
+| **OPC-UA** | OPC.UA.Server (C#) | Industrial protocol server |
+| **Safety** | Windows Service | SIL 3 emergency stop controller |
+| **PKI** | Windows Certificate Authority | SSL/TLS certificates |
+| **Logging** | Windows Event Forwarding | Audit trail (immutable) |
+| **Monitoring** | Performance Monitor + SIEM | Metrics & alerting |
 
 ---
 
