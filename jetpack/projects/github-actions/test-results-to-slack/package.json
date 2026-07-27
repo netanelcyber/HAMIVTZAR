@@ -1,0 +1,34 @@
+{
+	"private": true,
+	"description": "GitHub Action to send Slack notifications with test results",
+	"keywords": [
+		"wordpress",
+		"automattic",
+		"jetpack",
+		"github",
+		"action",
+		"tests"
+	],
+	"license": "GPL-2.0-or-later",
+	"author": "Automattic",
+	"type": "module",
+	"main": "src/index.js",
+	"scripts": {
+		"build": "tsdown",
+		"test": "NODE_OPTIONS=--experimental-vm-modules jest --config=tests/jest.config.js --verbose --runInBand",
+		"test-coverage": "pnpm run test --coverage"
+	},
+	"dependencies": {
+		"@actions/core": "3.0.1",
+		"@actions/github": "9.1.1",
+		"@slack/web-api": "7.15.1",
+		"glob": "13.0.6",
+		"minimatch": "10.2.4"
+	},
+	"devDependencies": {
+		"jest": "30.4.2",
+		"rollup-plugin-license": "3.7.1",
+		"tsdown": "0.22.2",
+		"undici": "7.28.0"
+	}
+}

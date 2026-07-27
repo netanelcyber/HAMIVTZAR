@@ -1,0 +1,6 @@
+{
+	"targets": {
+		"node": "current"
+	},
+	"presets": [ [ "@babel/preset-env", { "bugfixes": true } ] ]
+}

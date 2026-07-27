@@ -1,0 +1,8 @@
+.grid-control {
+
+	:global(.visx-line) {
+		stroke: var(--wpds-color-stroke-surface-neutral, #dbdbdb);
+		stroke-width: 1px;
+		shape-rendering: crispEdges;
+	}
+}
