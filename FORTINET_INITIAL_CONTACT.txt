@@ -1,0 +1,190 @@
+================================================================================
+FORTINET SECURITY TEAM - COORDINATED VULNERABILITY DISCLOSURE
+Initial Notification Email Template
+================================================================================
+
+TO: security@fortinet.com
+SUBJECT: Coordinated Vulnerability Disclosure - FortiOS 8.0.0 - Critical Findings
+SEVERITY: URGENT - CRITICAL VULNERABILITIES DISCOVERED
+
+EMAIL BODY:
+================================================================================
+
+Fortinet Security Team,
+
+This communication is submitted under the principle of coordinated vulnerability
+disclosure with a requested 90-day embargo period prior to public disclosure.
+
+---
+
+EXECUTIVE SUMMARY
+
+Through comprehensive fuzzing and binary analysis of FortiOS 8.0.0 in an isolated
+lab environment, our research team has discovered multiple critical vulnerabilities
+affecting the SSL-VPN endpoints, administrative interfaces, and authentication
+mechanisms.
+
+VULNERABILITY STATISTICS:
+• Total Vulnerabilities Discovered: [NUMBER FROM zero_day_report.json]
+• Unique Vulnerability Signatures: [UNIQUE COUNT]
+• CRITICAL (CVSS 9.0-10.0): [COUNT]
+• HIGH (CVSS 7.0-8.9): [COUNT]
+• MEDIUM (CVSS 4.0-6.9): [COUNT]
+• LOW (CVSS 0.1-3.9): [COUNT]
+
+---
+
+AFFECTED SYSTEMS
+
+Product: FortiOS
+Version: 8.0.0
+Environment: Isolated lab testing (NOT production systems)
+Impact: Authentication bypass, remote code execution, information disclosure
+
+Affected Endpoints:
+• SSL-VPN handshake and authentication (port 8443)
+• Administrative interface (port 443)
+• API endpoints (/api/v2/cmdb/*, /api/v2/monitor/*)
+
+---
+
+CRITICAL VULNERABILITIES IDENTIFIED
+
+[Top 3-5 Critical vulnerabilities will be listed in detailed submission]
+
+Example Vulnerability Pattern:
+• Type: Authentication Bypass via Protocol Fuzzing
+• Attack Vector: Network/Adjacent Network
+• CVSS 3.1 Score: 9.8 (CRITICAL)
+• Prerequisite: Network access to SSL-VPN or admin interface
+• Impact: Unauthenticated remote code execution potential
+
+---
+
+METHODOLOGY
+
+Discovery Method: Automated fuzzing with binary disassembly analysis
+• 7 mutation strategies (bit-flip, byte-flip, interesting bytes, arithmetic,
+  havoc, splicing, coverage-guided)
+• Binary pattern analysis using ELF disassembly
+• C++ class structure analysis
+• Crash correlation with source code patterns
+
+Lab Environment:
+• Isolated VirtualBox environment with no external connectivity
+• FortiOS 8.0.0 running in hospital-lab configuration
+• Comprehensive logging and reproducibility verification
+• All testing contained within authorized lab environment
+
+---
+
+TIMELINE (COORDINATED DISCLOSURE)
+
+Day 0-2:   Initial notification (this email)
+Day 2-7:   Detailed technical submission with PoC and crash data
+Day 7-30:  Patch development and testing (vendor responsibility)
+Day 30-90: Patch release and public coordination
+Day 90+:   Public CVE assignment and disclosure after patch availability
+
+---
+
+NEXT STEPS
+
+Within the next 48 hours, please acknowledge receipt of this notification and
+confirm the security@fortinet.com email is the correct contact for vulnerability
+coordination.
+
+Within 7 days, we will submit a comprehensive vulnerability package including:
+1. Detailed technical analysis for each vulnerability
+2. Proof-of-concept code and crash reproduction steps
+3. Binary analysis reports and function pattern matching
+4. Crash data and payload information
+5. Impact assessment and affected system estimates
+6. Patch verification procedures
+
+---
+
+EMBARGO NOTICE
+
+This communication and all subsequent submissions are marked as CONFIDENTIAL and
+subject to a 90-day coordinated disclosure embargo. Unauthorized disclosure,
+reproduction, or distribution of these vulnerabilities prior to patch availability
+is prohibited.
+
+The requesting party requests that Fortinet:
+• Acknowledge receipt within 48 hours
+• Provide patch development timeline within 7 days
+• Release patches or public advisory by day 90
+• Coordinate with us on disclosure timing
+
+---
+
+CONTACT INFORMATION
+
+Research Conducted By: Security Research Team
+Email: [YOUR EMAIL]
+Verification: This communication includes detailed technical information
+available only through successful lab reproduction.
+
+Encryption: PGP key available at [IF APPLICABLE]
+
+---
+
+ADDITIONAL COORDINATION
+
+For CRITICAL vulnerabilities (CVSS ≥ 9.0) affecting critical infrastructure:
+• US Government (CISA) notification planned at Day 2
+• International partner coordination available
+• Industry ISAC notifications may be coordinated
+• Government agencies may request embargo extension
+
+---
+
+RESPONSIBLE DISCLOSURE COMMITMENT
+
+This research follows responsible disclosure best practices:
+✓ Vulnerabilities discovered in isolated lab environment
+✓ No production systems involved or compromised
+✓ 90-day coordinated disclosure timeline offered
+✓ Proper CVE assignment and attribution requested
+✓ No public disclosure until patches available
+✓ No exploitation beyond proof-of-concept in lab environment
+
+We are committed to working with Fortinet to resolve these vulnerabilities
+and protect global deployments of FortiOS.
+
+---
+
+AWAITING YOUR RESPONSE
+
+Please confirm receipt and provide:
+1. Expected timeframe for acknowledging this report
+2. Technical contact for detailed vulnerability submission
+3. PGP key or encrypted channel for sensitive technical details
+4. Expected patch development timeline
+
+We will follow up on [DATE + 48 HOURS] if no response is received, and will
+escalate through alternative channels as outlined in industry vulnerability
+disclosure protocols.
+
+Thank you for your prompt attention to this critical matter.
+
+---
+
+Respectfully Submitted,
+[YOUR NAME/ORGANIZATION]
+[DATE]
+
+================================================================================
+
+INSTRUCTIONS FOR SENDING:
+
+1. Replace [BRACKETED FIELDS] with actual values from zero_day_report.json
+2. Customize contact information
+3. Consider using PGP encryption if available
+4. Send to: security@fortinet.com
+5. Keep copy of sent email for coordination log
+6. Document send time and await response
+7. If no response in 48 hours, prepare escalation (see ZERODAY_PROTOCOL.md)
+
+================================================================================
