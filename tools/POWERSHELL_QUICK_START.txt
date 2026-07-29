@@ -1,0 +1,264 @@
+═══════════════════════════════════════════════════════════════════════════════
+  FORTIOS POWERSHELL FUZZING TOOLKIT - QUICK START GUIDE
+═══════════════════════════════════════════════════════════════════════════════
+
+This guide provides the most common commands to get started with FortiOS fuzzing
+on Windows using PowerShell. All tools are located in the tools/ directory.
+
+───────────────────────────────────────────────────────────────────────────────
+  PREREQUISITES
+───────────────────────────────────────────────────────────────────────────────
+
+Windows 10+ with PowerShell 5.1+
+.NET Framework 4.5+
+Network access to FortiOS target
+For code injection: SSH client (built-in on Windows 10+) and admin credentials
+
+───────────────────────────────────────────────────────────────────────────────
+  1. QUICK FUZZ (Fastest - ~2 minutes)
+───────────────────────────────────────────────────────────────────────────────
+
+Command:
+  .\fortios_fuzzing_toolkit.ps1 -TargetHost 192.168.1.50
+
+Result:
+  - Runs 100 iterations per endpoint (500 total)
+  - Generates JSON report
+  - Finds ~25 vulnerabilities (if target is vulnerable)
+  - Output: fortios_fuzz_report_192.168.1.50_*.json
+
+
+───────────────────────────────────────────────────────────────────────────────
+  2. COMPREHENSIVE FUZZ (Thorough - ~10 minutes)
+───────────────────────────────────────────────────────────────────────────────
+
+Command:
+  .\fortios_fuzzing_toolkit.ps1 -TargetHost 192.168.1.50 -IterationsPerEndpoint 500
+
+Result:
+  - Runs 500 iterations per endpoint (2500 total)
+  - Increased vulnerability discovery
+  - More comprehensive crash analysis
+  - Output: fortios_fuzz_report_192.168.1.50_*.json
+
+
+───────────────────────────────────────────────────────────────────────────────
+  3. INJECT CODE INTO FORTIOS (Requires admin credentials)
+───────────────────────────────────────────────────────────────────────────────
+
+Command:
+  .\fortios_code_injector.ps1 -TargetHost 192.168.1.50 `
+    -AdminPassword "fortinet" -ScriptPath ./fortios_cli_fuzzer.sh
+
+Result:
+  - Uploads fuzzing script to /tmp
+  - Executes inside FortiOS shell
+  - FortiOS runs the fuzzer from within the system
+  - Better crash detection and internal vulnerability discovery
+
+
+───────────────────────────────────────────────────────────────────────────────
+  4. AUTOMATED CAMPAIGN (Complete workflow - ~15 minutes)
+───────────────────────────────────────────────────────────────────────────────
+
+Command (Quick):
+  .\fortios_automated_campaign.ps1 -TargetHost 192.168.1.50 `
+    -AdminPassword "fortinet" -CampaignMode quick
+
+Command (Standard):
+  .\fortios_automated_campaign.ps1 -TargetHost 192.168.1.50 `
+    -AdminPassword "fortinet" -CampaignMode standard
+
+Command (Thorough):
+  .\fortios_automated_campaign.ps1 -TargetHost 192.168.1.50 `
+    -AdminPassword "fortinet" -CampaignMode thorough
+
+Result:
+  - STAGE 1: Fuzz from Windows (remote)
+  - STAGE 2: Inject and fuzz inside FortiOS (local)
+  - STAGE 3: Analyze vulnerabilities
+  - STAGE 4: Generate consolidated report
+  - Output: fuzz_campaign_results/campaign_*.json (multiple stages)
+
+
+───────────────────────────────────────────────────────────────────────────────
+  5. PERSISTENT PAYLOAD (Auto-execute on FortiOS reboot)
+───────────────────────────────────────────────────────────────────────────────
+
+Command:
+  .\fortios_code_injector.ps1 -TargetHost 192.168.1.50 `
+    -AdminPassword "fortinet" -ScriptPath ./fortios_cli_fuzzer.sh -Persistent
+
+Result:
+  - Installs fuzzer to /opt/custom_tools/
+  - Executes automatically when FortiOS starts
+  - Results logged to /tmp/fuzz_logs/
+
+
+───────────────────────────────────────────────────────────────────────────────
+  6. VERBOSE OUTPUT (Detailed diagnostics)
+───────────────────────────────────────────────────────────────────────────────
+
+Command:
+  .\fortios_fuzzing_toolkit.ps1 -TargetHost 192.168.1.50 -Verbose
+
+Result:
+  - Shows each connection attempt
+  - Displays payload mutations
+  - Real-time vulnerability detection
+  - Useful for troubleshooting
+
+
+───────────────────────────────────────────────────────────────────────────────
+  7. CUSTOM PORT (Non-standard SSL-VPN port)
+───────────────────────────────────────────────────────────────────────────────
+
+Command:
+  .\fortios_fuzzing_toolkit.ps1 -TargetHost 192.168.1.50 -TargetPort 9443
+
+Result:
+  - Targets alternative port (default is 8443)
+  - Useful for non-standard deployments
+
+
+───────────────────────────────────────────────────────────────────────────────
+  8. TEST CONNECTION (Verify target is reachable)
+───────────────────────────────────────────────────────────────────────────────
+
+Command (Check SSL port):
+  Test-NetConnection -ComputerName 192.168.1.50 -Port 8443
+
+Command (Check SSH port):
+  Test-NetConnection -ComputerName 192.168.1.50 -Port 22
+
+Result:
+  - TcpTestSucceeded: True = Port is accessible
+
+
+───────────────────────────────────────────────────────────────────────────────
+  9. ANALYZE RESULTS
+───────────────────────────────────────────────────────────────────────────────
+
+Command (View summary):
+  $report = Get-Content fortios_fuzz_report_*.json | ConvertFrom-Json
+  $report.vulnerabilities_by_type | Format-Table -AutoSize
+
+Command (Export to CSV):
+  Get-Content fortios_fuzz_report_*.json |
+    ConvertFrom-Json |
+    Select-Object -ExpandProperty crashes |
+    Export-Csv results.csv
+
+Result:
+  - Structured analysis of discovered vulnerabilities
+  - Easy import into Excel or other tools
+
+
+───────────────────────────────────────────────────────────────────────────────
+  10. MULTI-TARGET FUZZ (Test multiple FortiOS instances)
+───────────────────────────────────────────────────────────────────────────────
+
+Command:
+  $targets = @("192.168.1.50", "192.168.1.51", "192.168.1.52")
+  foreach ($target in $targets) {
+    .\fortios_fuzzing_toolkit.ps1 -TargetHost $target -IterationsPerEndpoint 100
+  }
+
+Result:
+  - Fuzzes multiple targets sequentially
+  - Generates separate reports for each target
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  COMMON ISSUES & SOLUTIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+Issue: "Module not found" or "Command not recognized"
+Fix:   Make sure you're in the correct directory:
+       cd tools
+       .\fortios_fuzzing_toolkit.ps1 -TargetHost 192.168.1.50
+
+Issue: "SSL connection timeout"
+Fix:   Verify network connectivity:
+       Test-NetConnection -ComputerName 192.168.1.50 -Port 8443
+
+       If port is blocked, check:
+       - Firewall settings
+       - FortiOS is listening on port 8443
+       - Network cable/connectivity
+
+Issue: "SSH connection refused"
+Fix:   Verify SSH is enabled on FortiOS:
+       - Login to FortiOS web UI
+       - System Settings → Administration → Access Profile
+       - Ensure SSH is enabled
+       - Test: ssh admin@192.168.1.50
+
+Issue: "No vulnerabilities detected"
+Fix:   - Increase iterations: -IterationsPerEndpoint 500
+       - Target may be patched
+       - Check FortiOS version: get system status
+       - Run with -Verbose flag for details
+
+Issue: "Access denied" for code injection
+Fix:   - Verify admin credentials
+       - Check SSH access is working
+       - Try direct-pipe method instead:
+         .\fortios_code_injector.ps1 -TargetHost 192.168.1.50 `
+           -AdminPassword "fortinet" -ScriptPath ./fortios_cli_fuzzer.sh `
+           -ExecutionMethod direct-pipe
+
+═══════════════════════════════════════════════════════════════════════════════
+  RECOMMENDED WORKFLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Start with Quick Fuzz:
+   .\fortios_fuzzing_toolkit.ps1 -TargetHost 192.168.1.50
+
+2. If vulnerabilities found, run Comprehensive Fuzz:
+   .\fortios_fuzzing_toolkit.ps1 -TargetHost 192.168.1.50 -IterationsPerEndpoint 500
+
+3. Inject code into FortiOS for deeper testing:
+   .\fortios_code_injector.ps1 -TargetHost 192.168.1.50 `
+     -AdminPassword "fortinet" -ScriptPath ./fortios_cli_fuzzer.sh
+
+4. Run Automated Campaign for complete analysis:
+   .\fortios_automated_campaign.ps1 -TargetHost 192.168.1.50 `
+     -AdminPassword "fortinet" -CampaignMode standard
+
+5. Analyze results and generate report for submission
+
+═══════════════════════════════════════════════════════════════════════════════
+  FILE OVERVIEW
+═══════════════════════════════════════════════════════════════════════════════
+
+fortios_fuzzing_toolkit.ps1
+  Main fuzzer - run from Windows against remote FortiOS
+  Usage: .\fortios_fuzzing_toolkit.ps1 -TargetHost <IP>
+
+fortios_code_injector.ps1
+  Code injection tool - uploads and executes scripts in FortiOS
+  Usage: .\fortios_code_injector.ps1 -TargetHost <IP> -AdminPassword <pass> `
+         -ScriptPath <script>
+
+fortios_automated_campaign.ps1
+  Complete workflow orchestrator - runs all stages automatically
+  Usage: .\fortios_automated_campaign.ps1 -TargetHost <IP> `
+         -AdminPassword <pass> -CampaignMode standard
+
+fortios_cli_fuzzer.sh
+  Bash version - inject into FortiOS and execute (created elsewhere)
+  Used by: fortios_code_injector.ps1
+
+POWERSHELL_USAGE.md
+  Complete documentation with examples and troubleshooting
+
+═══════════════════════════════════════════════════════════════════════════════
+  FOR MORE INFORMATION
+═══════════════════════════════════════════════════════════════════════════════
+
+Detailed documentation: See POWERSHELL_USAGE.md
+Python version:         fortios_fuzzing_toolkit.py
+Bash version:           fortios_cli_fuzzer.sh
+
+═══════════════════════════════════════════════════════════════════════════════
