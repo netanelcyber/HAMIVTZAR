@@ -19,12 +19,21 @@ FORTINET_CVE_SUBMISSION/
 ├── FORTINET_COORDINATION_LOG.md          ← Track all communications
 │
 ├── analysis/                             ← Technical Analysis
-│   └── VULNERABILITY_ANALYSIS_FORMAT_STRING.md
-│       • Deep analysis of format string vulnerability
-│       • Attack vectors and exploitation scenarios
-│       • Root cause analysis
-│       • Remediation strategies
-│       • CVSS 3.1 scoring breakdown
+│   ├── VULNERABILITY_ANALYSIS_FORMAT_STRING.md
+│   │   • Deep analysis of format string vulnerability
+│   │   • Attack vectors and exploitation scenarios
+│   │   • Root cause analysis
+│   │   • Remediation strategies
+│   │   • CVSS 3.1 scoring breakdown
+│   │
+│   └── EXPLOITATION_ESCALATION_CHAINS.md
+│       • Three complete attack chains to system compromise
+│       • Auth Bypass → Format String → RCE (CVSS 9.2+)
+│       • Path Traversal → Credentials → Privilege Escalation (CVSS 9.8+)
+│       • DoS → Crash Exploitation → Code Execution (CVSS 8.5+)
+│       • PoC code for each exploitation stage
+│       • Indicators of compromise (IoC)
+│       • Remediation priorities
 │
 ├── poc/                                  ← Proof of Concept Code
 │   └── POC_EXPLOIT_PACK.py
@@ -104,15 +113,23 @@ cat testing/POC_TESTING_GUIDE.md
 
 ## 📊 Vulnerability Summary
 
-### Discovered Issues
+### Discovered Issues (Individual & Chained Impact)
 
-| # | Type | CVSS | Severity | Status |
-|---|------|------|----------|--------|
-| 1 | Path Traversal (CVE-2023-13246) | 9.8 | CRITICAL | Known CVE |
-| 2 | Format String Attack | 4.46 | MEDIUM | Novel |
-| 3 | Authentication Bypass | 4.31 | MEDIUM | Novel |
-| 4 | Buffer Overflow | 4.31 | MEDIUM | Novel |
-| 5 | Denial of Service | 4.02 | MEDIUM | Novel |
+| # | Type | CVSS | Severity | Status | Chained Impact |
+|---|------|------|----------|--------|----------------|
+| 1 | Path Traversal (CVE-2023-13246) | 9.8 | CRITICAL | Known CVE | Full admin access via credential theft |
+| 2 | Format String Attack | 4.46 | MEDIUM | Novel | ASLR bypass + memory leak |
+| 3 | Authentication Bypass | 4.31 | MEDIUM | Novel | Unauthenticated access |
+| 4 | Buffer Overflow | 4.31 | MEDIUM | Novel | Remote code execution |
+| 5 | Denial of Service | 4.02 | MEDIUM | Novel | Crash exploitation window |
+
+### Exploitation Chains (Combined Impact)
+
+| Chain | Path | Combined CVSS | Impact |
+|-------|------|---------------|--------|
+| **Chain 1** | Auth Bypass → Format String → Buffer Overflow | **9.2+** | **Unauthenticated RCE** |
+| **Chain 2** | Path Traversal → Cred Extraction → SSH → Privilege Escalation | **9.8+** | **Full administrative access** |
+| **Chain 3** | DoS → Crash Exploitation → Heap Spray | **8.5+** | **Code execution via crash** |
 
 ### Statistics
 - **Total Crashes:** 8,363+
