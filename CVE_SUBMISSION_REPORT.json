@@ -1,0 +1,312 @@
+{
+  "title": "CVE Submission Automation Report",
+  "submission_date": "2026-07-30T11:37:08.873287",
+  "submitter": {
+    "name": "Netanel Stern",
+    "email": "nsh531@gmail.com",
+    "timezone": "UTC+2",
+    "phone": "[Available for urgent coordination]"
+  },
+  "summary": {
+    "total_vulnerabilities": 5,
+    "average_cvss": 7.479999999999999,
+    "critical_count": 1,
+    "total_authorities": 4
+  },
+  "vulnerabilities": {
+    "1": {
+      "name": "Path Traversal",
+      "cvss": 9.8,
+      "severity": "CRITICAL",
+      "cwe": "CWE-22",
+      "endpoint": "GET /admin/path.cgi",
+      "reproducibility": 78,
+      "crash_id": "crash_003"
+    },
+    "2": {
+      "name": "Buffer Overflow with ROP Chain",
+      "cvss": 8.6,
+      "severity": "CRITICAL",
+      "cwe": "CWE-120",
+      "endpoint": "POST /admin/hostname.cgi",
+      "reproducibility": 92,
+      "crash_id": "crash_002"
+    },
+    "3": {
+      "name": "Authentication Bypass",
+      "cvss": 7.2,
+      "severity": "HIGH",
+      "cwe": "CWE-287",
+      "endpoint": "Cookie-based",
+      "reproducibility": 85,
+      "crash_id": "crash_001"
+    },
+    "4": {
+      "name": "Format String Information Disclosure",
+      "cvss": 6.5,
+      "severity": "MEDIUM",
+      "cwe": "CWE-134",
+      "endpoint": "GET /admin/log.cgi",
+      "reproducibility": 88,
+      "crash_id": "crash_004"
+    },
+    "5": {
+      "name": "Denial of Service",
+      "cvss": 5.3,
+      "severity": "MEDIUM",
+      "cwe": "CWE-401",
+      "endpoint": "Connection handler",
+      "reproducibility": 95,
+      "crash_id": "crash_005"
+    }
+  },
+  "authorities": {
+    "fortinet": {
+      "name": "Fortinet PSIRT",
+      "email": "security@fortinet.com",
+      "cc": "psirt@fortinet.com",
+      "priority": 1,
+      "type": "vendor",
+      "sla_hours": 12
+    },
+    "cert_cc": {
+      "name": "CERT/CC",
+      "email": "vulnerability@cert.org",
+      "priority": 2,
+      "type": "cna",
+      "sla_hours": 24
+    },
+    "mitre": {
+      "name": "MITRE",
+      "email": "cve@mitre.org",
+      "priority": 3,
+      "type": "cna",
+      "sla_hours": 48
+    },
+    "cisa": {
+      "name": "CISA",
+      "email": "central@cisa.dhs.gov",
+      "priority": 4,
+      "type": "government",
+      "sla_hours": 24
+    },
+    "iscd": {
+      "name": "Israeli Cyber Directorate",
+      "email": "cyber@gov.il",
+      "priority": 5,
+      "type": "government",
+      "sla_hours": 24,
+      "optional": true
+    }
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-07-30T11:37:08.873556",
+      "type": "email_generated",
+      "details": {
+        "authority": "Fortinet PSIRT",
+        "email": "security@fortinet.com"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:08.873927",
+      "type": "email_generated",
+      "details": {
+        "authority": "CERT/CC",
+        "email": "vulnerability@cert.org"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:08.874142",
+      "type": "email_generated",
+      "details": {
+        "authority": "MITRE",
+        "email": "cve@mitre.org"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:08.874702",
+      "type": "email_generated",
+      "details": {
+        "authority": "CISA",
+        "email": "central@cisa.dhs.gov"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:08.874975",
+      "type": "email_generated",
+      "details": {
+        "authority": "Israeli Cyber Directorate",
+        "email": "cyber@gov.il"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:08.875175",
+      "type": "sending_initiated",
+      "details": {
+        "timestamp": "2026-07-30T11:37:08.875172"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:08.876941",
+      "type": "email_queued",
+      "details": {
+        "recipient": "security@fortinet.com",
+        "method": "mail_command"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:10.878415",
+      "type": "email_queued",
+      "details": {
+        "recipient": "vulnerability@cert.org",
+        "method": "mail_command"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:12.879909",
+      "type": "email_queued",
+      "details": {
+        "recipient": "cve@mitre.org",
+        "method": "mail_command"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:14.881281",
+      "type": "email_queued",
+      "details": {
+        "recipient": "central@cisa.dhs.gov",
+        "method": "mail_command"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:16.882505",
+      "type": "email_queued",
+      "details": {
+        "recipient": "cyber@gov.il",
+        "method": "mail_command"
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:18.883141",
+      "type": "sending_completed",
+      "details": {
+        "total_time_seconds": 10.007897,
+        "results": {
+          "fortinet": {
+            "success": true,
+            "timestamp": "2026-07-30T11:37:08.877293"
+          },
+          "cert_cc": {
+            "success": true,
+            "timestamp": "2026-07-30T11:37:10.878907"
+          },
+          "mitre": {
+            "success": true,
+            "timestamp": "2026-07-30T11:37:12.880335"
+          },
+          "cisa": {
+            "success": true,
+            "timestamp": "2026-07-30T11:37:14.881616"
+          },
+          "iscd": {
+            "success": true,
+            "timestamp": "2026-07-30T11:37:16.882901"
+          }
+        }
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:18.883767",
+      "type": "monitoring_scheduled",
+      "details": {
+        "authority": "Fortinet PSIRT",
+        "email": "security@fortinet.com",
+        "sla_hours": 12,
+        "check_times": [
+          [
+            "2026-07-30T11:37:08.873287",
+            "check_initial"
+          ],
+          [
+            "T+12h",
+            "check_sla"
+          ],
+          [
+            "T+24h",
+            "escalation_if_no_response"
+          ]
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:18.884442",
+      "type": "monitoring_scheduled",
+      "details": {
+        "authority": "CERT/CC",
+        "email": "vulnerability@cert.org",
+        "sla_hours": 24,
+        "check_times": [
+          [
+            "2026-07-30T11:37:08.873287",
+            "check_initial"
+          ],
+          [
+            "T+24h",
+            "check_sla"
+          ],
+          [
+            "T+48h",
+            "escalation_if_no_response"
+          ]
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:18.884751",
+      "type": "monitoring_scheduled",
+      "details": {
+        "authority": "MITRE",
+        "email": "cve@mitre.org",
+        "sla_hours": 48,
+        "check_times": [
+          [
+            "2026-07-30T11:37:08.873287",
+            "check_initial"
+          ],
+          [
+            "T+48h",
+            "check_sla"
+          ],
+          [
+            "T+96h",
+            "escalation_if_no_response"
+          ]
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-07-30T11:37:18.885362",
+      "type": "monitoring_scheduled",
+      "details": {
+        "authority": "CISA",
+        "email": "central@cisa.dhs.gov",
+        "sla_hours": 24,
+        "check_times": [
+          [
+            "2026-07-30T11:37:08.873287",
+            "check_initial"
+          ],
+          [
+            "T+24h",
+            "check_sla"
+          ],
+          [
+            "T+48h",
+            "escalation_if_no_response"
+          ]
+        ]
+      }
+    }
+  ]
+}
