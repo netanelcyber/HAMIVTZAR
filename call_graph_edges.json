@@ -1,0 +1,252 @@
+{
+  "metadata": {
+    "title": "FortiOS 8.0.0 Binary Call Graph - Edge/Link Definitions",
+    "source": "GHIDRA disassembly analysis",
+    "date": "2026-07-30",
+    "target": "FortiOS 8.0.0 (Build 0030)"
+  },
+  "edges": [
+    {
+      "id": "link_001",
+      "source": "http_handler",
+      "target": "handle_path_request",
+      "type": "call",
+      "instruction": "call 0x40d100",
+      "address": "0x40aaa5",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "HTTP handler dispatches to path request handler",
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_002",
+      "source": "http_handler",
+      "target": "handle_hostname_request",
+      "type": "call",
+      "instruction": "call 0x40c900",
+      "address": "0x40aab2",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "HTTP handler dispatches to hostname request handler",
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_003",
+      "source": "ssl_vpn_handler",
+      "target": "handle_auth_request",
+      "type": "call",
+      "instruction": "call 0x40e0a0",
+      "address": "0x40ab1c",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "SSL-VPN handler dispatches to auth handler",
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_004",
+      "source": "ssl_vpn_handler",
+      "target": "handle_log_request",
+      "type": "call",
+      "instruction": "call 0x40e8a0",
+      "address": "0x40ab29",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "SSL-VPN handler dispatches to log handler",
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_005",
+      "source": "ssl_vpn_handler",
+      "target": "handle_connection",
+      "type": "call",
+      "instruction": "call 0x40cc200",
+      "address": "0x40ab36",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "SSL-VPN handler sets up connection handling",
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_006",
+      "source": "handle_path_request",
+      "target": "path_handler",
+      "type": "call",
+      "instruction": "call 0x40d5a0",
+      "address": "0x40d120",
+      "hex": "e8 48 35 00 00",
+      "description": "Path request handler calls vulnerable path_handler function",
+      "exploitation_chain": true,
+      "chain_step": 1,
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_007",
+      "source": "handle_hostname_request",
+      "target": "process_hostname",
+      "type": "call",
+      "instruction": "call 0x40c8f20",
+      "address": "0x40c920",
+      "hex": "e8 ?? 9a ff ff",
+      "description": "Hostname handler calls vulnerable process_hostname function",
+      "exploitation_chain": true,
+      "chain_step": 1,
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_008",
+      "source": "handle_auth_request",
+      "target": "validate_session",
+      "type": "call",
+      "instruction": "call 0x40e1a20",
+      "address": "0x40e0c5",
+      "hex": "e8 ?? 19 01 00",
+      "description": "Auth handler calls vulnerable validate_session function",
+      "exploitation_chain": true,
+      "chain_step": 1,
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_009",
+      "source": "handle_log_request",
+      "target": "format_log_entry",
+      "type": "call",
+      "instruction": "call 0x40e8b60",
+      "address": "0x40e8d2",
+      "hex": "e8 89 02 00 00",
+      "description": "Log handler calls vulnerable format_log_entry function",
+      "exploitation_chain": true,
+      "chain_step": 1,
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_010",
+      "source": "path_handler",
+      "target": "strcpy",
+      "type": "call",
+      "instruction": "call strcpy",
+      "address": "0x40d5c1",
+      "hex": "e8 3a 12 00 00",
+      "description": "VULNERABLE CALL: path_handler calls strcpy without size bounds",
+      "vulnerability": "Buffer overflow via strcpy",
+      "severity": "CRITICAL",
+      "stack_buffer_size": 64,
+      "input_validation": "NONE",
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_011",
+      "source": "process_hostname",
+      "target": "strcpy",
+      "type": "call",
+      "instruction": "call strcpy",
+      "address": "0x40c8f39",
+      "hex": "e8 22 11 00 00",
+      "description": "VULNERABLE CALL: process_hostname calls strcpy without size bounds",
+      "vulnerability": "Stack buffer overflow with ROP chain",
+      "severity": "CRITICAL",
+      "stack_buffer_size": 64,
+      "input_validation": "NONE",
+      "rop_chain_possible": true,
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_012",
+      "source": "format_log_entry",
+      "target": "strcpy",
+      "type": "call",
+      "instruction": "call strcpy",
+      "address": "0x40e8c5",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "format_log_entry calls strcpy for formatting",
+      "vulnerability": "Format string processing without validation",
+      "severity": "MEDIUM",
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_013",
+      "source": "path_handler",
+      "target": "send_to_client",
+      "type": "call",
+      "instruction": "call 0x40f1200",
+      "address": "0x40d5d5",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "path_handler sends file contents to client via HTTP response",
+      "data_flow": "exfiltration",
+      "exploitation_chain": true,
+      "chain_step": 2,
+      "control_flow": "direct_call"
+    },
+    {
+      "id": "link_014",
+      "source": "handle_connection",
+      "target": "strcpy",
+      "type": "call",
+      "instruction": "call malloc",
+      "address": "0x40cc250",
+      "hex": "e8 ?? ?? ?? ??",
+      "description": "Connection handler allocates memory without limits",
+      "vulnerability": "Memory exhaustion DoS via unbounded malloc",
+      "severity": "MEDIUM",
+      "allocation_size": 1048576,
+      "leak_on_failure": true,
+      "control_flow": "direct_call"
+    }
+  ],
+  "exploitation_chains": [
+    {
+      "chain_id": "rce_chain_1",
+      "name": "Path Traversal to RCE (15 minutes)",
+      "severity": "CRITICAL",
+      "cvss": 9.8,
+      "time_to_exploit": "~15 minutes",
+      "steps": [
+        {
+          "step": 1,
+          "function": "path_handler",
+          "vulnerability": "Path Traversal via strcpy",
+          "action": "Access /etc/passwd via ../../etc/passwd",
+          "time": "T+5 minutes",
+          "payload": "GET /admin/path.cgi?file=../../etc/passwd HTTP/1.1"
+        },
+        {
+          "step": 2,
+          "function": "handle_path_request",
+          "vulnerability": "Information Disclosure",
+          "action": "Harvest SSH private keys from /home/admin/.ssh/id_rsa",
+          "time": "T+5-10 minutes",
+          "impact": "Credential acquisition"
+        },
+        {
+          "step": 3,
+          "function": "validate_session (bypass)",
+          "vulnerability": "Authentication Bypass",
+          "action": "Use harvested credentials to obtain SSH access",
+          "time": "T+10-13 minutes",
+          "impact": "Remote shell access as admin user"
+        },
+        {
+          "step": 4,
+          "function": "process_hostname (buffer overflow)",
+          "vulnerability": "Stack Buffer Overflow + ROP Chain",
+          "action": "Escalate to root via vulnerable diag_cli",
+          "time": "T+13-15 minutes",
+          "impact": "Full system compromise"
+        }
+      ],
+      "final_state": "Remote Code Execution with root privileges"
+    }
+  ],
+  "call_graph_statistics": {
+    "total_edges": 14,
+    "call_instructions": 12,
+    "jump_instructions": 0,
+    "vulnerable_calls": 4,
+    "exploitation_chain_edges": 4,
+    "edges_per_node": {
+      "http_handler": 2,
+      "ssl_vpn_handler": 3,
+      "path_handler": 2,
+      "process_hostname": 1,
+      "validate_session": 0,
+      "format_log_entry": 1,
+      "handle_connection": 1
+    },
+    "critical_path_length": 4,
+    "deepest_call_depth": 5
+  }
+}

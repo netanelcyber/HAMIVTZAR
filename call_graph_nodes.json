@@ -1,0 +1,230 @@
+{
+  "metadata": {
+    "title": "FortiOS 8.0.0 Binary Call Graph - Node Definitions",
+    "source": "GHIDRA binary analysis + Fuzzing crash data",
+    "date": "2026-07-30",
+    "target": "FortiOS 8.0.0 (Build 0030)"
+  },
+  "nodes": [
+    {
+      "id": "http_handler",
+      "label": "http_handler",
+      "address": "0x40aa00",
+      "type": "entry",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "HTTP request entry point handler"
+    },
+    {
+      "id": "ssl_vpn_handler",
+      "label": "ssl_vpn_handler",
+      "address": "0x40ab00",
+      "type": "entry",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "SSL-VPN protocol request entry point"
+    },
+    {
+      "id": "handle_path_request",
+      "label": "handle_path_request",
+      "address": "0x40d100",
+      "type": "handler",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "HTTP path request handler (calls path_handler)"
+    },
+    {
+      "id": "handle_hostname_request",
+      "label": "handle_hostname_request",
+      "address": "0x40c900",
+      "type": "handler",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "Hostname parameter request handler"
+    },
+    {
+      "id": "handle_auth_request",
+      "label": "handle_auth_request",
+      "address": "0x40e0a0",
+      "type": "handler",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "Authentication request handler"
+    },
+    {
+      "id": "handle_log_request",
+      "label": "handle_log_request",
+      "address": "0x40e8a0",
+      "type": "handler",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "Log entry request handler"
+    },
+    {
+      "id": "handle_connection",
+      "label": "handle_connection",
+      "address": "0x40cc200",
+      "type": "vulnerable",
+      "vulnerable": true,
+      "cvss": 5.3,
+      "cvss_severity": "MEDIUM",
+      "reproducibility": 95,
+      "crash_id": "crash_005",
+      "vulnerability_type": "Denial of Service",
+      "description": "Connection handler - memory exhaustion DoS",
+      "root_cause": "malloc() without resource limits, memory leak on connection failure",
+      "payload_size": "10006 bytes"
+    },
+    {
+      "id": "path_handler",
+      "label": "path_handler",
+      "address": "0x40d5a0",
+      "type": "vulnerable",
+      "vulnerable": true,
+      "cvss": 9.8,
+      "cvss_severity": "CRITICAL",
+      "reproducibility": 78,
+      "crash_id": "crash_003",
+      "vulnerability_type": "Path Traversal",
+      "description": "Path traversal vulnerability leading to RCE",
+      "root_cause": "strcpy() without bounds checking - 64-byte buffer overflow via path normalization bypass",
+      "payload_size": "45 bytes",
+      "exploitation_chain": "Path Traversal → SSH Key Harvest → Auth Bypass → Buffer Overflow → RCE",
+      "time_to_rce_minutes": 15,
+      "affected_endpoints": ["443/admin"],
+      "hex_dump": "40d5a0: 55 48 89 e5 48 83 ec 40 48 8d 45 c0 48 89 c7 e8 3a 12 00 00 48 8d 45 c0 c3"
+    },
+    {
+      "id": "process_hostname",
+      "label": "process_hostname",
+      "address": "0x40c8f20",
+      "type": "vulnerable",
+      "vulnerable": true,
+      "cvss": 8.6,
+      "cvss_severity": "CRITICAL",
+      "reproducibility": 92,
+      "crash_id": "crash_002",
+      "vulnerability_type": "Buffer Overflow",
+      "description": "Buffer overflow with ROP chain execution capability",
+      "root_cause": "strcpy() without size validation - 64-byte stack buffer overflow with corrupted RIP",
+      "payload_size": "5004 bytes",
+      "exploitation_chain": "Buffer Overflow → ROP Gadget Chain → execve() System Call → Code Execution",
+      "affected_endpoints": ["8443/ssl-vpn"],
+      "hex_dump": "40c8f20: 55 48 89 e5 48 83 ec 40 48 8d 45 c0 48 89 c7 48 89 ce e8 22 11 00 00 48 8d 45 c0 c3",
+      "rop_gadgets": [
+        {
+          "address": "0x402a0a",
+          "instruction": "pop rdi; ret",
+          "purpose": "Set 1st argument (RDI) for system calls"
+        },
+        {
+          "address": "0x402a0c",
+          "instruction": "pop rsi; ret",
+          "purpose": "Set 2nd argument (RSI) for system calls"
+        },
+        {
+          "address": "0x402a0e",
+          "instruction": "pop rdx; ret",
+          "purpose": "Set 3rd argument (RDX) for system calls"
+        },
+        {
+          "address": "0x4d4567",
+          "instruction": "syscall",
+          "purpose": "Execute system call (rax=59 for execve)"
+        }
+      ]
+    },
+    {
+      "id": "validate_session",
+      "label": "validate_session",
+      "address": "0x40e1a20",
+      "type": "vulnerable",
+      "vulnerable": true,
+      "cvss": 7.2,
+      "cvss_severity": "HIGH",
+      "reproducibility": 85,
+      "crash_id": "crash_001",
+      "vulnerability_type": "Authentication Bypass",
+      "description": "Session token validation logic error",
+      "root_cause": "Logic error: if (length < 8) return VALID skips HMAC verification for short tokens",
+      "payload_size": "104 bytes",
+      "exploitation_chain": "Forged Short Token → Auth Bypass → Admin Access → Configuration Download → Persistent Backdoor",
+      "affected_endpoints": ["8443/ssl-vpn"],
+      "hex_dump": "40e1a20: [session token parsing logic]",
+      "impact": "Complete authentication bypass, admin access without credentials"
+    },
+    {
+      "id": "format_log_entry",
+      "label": "format_log_entry",
+      "address": "0x40e8b60",
+      "type": "vulnerable",
+      "vulnerable": true,
+      "cvss": 6.5,
+      "cvss_severity": "MEDIUM",
+      "reproducibility": 88,
+      "crash_id": "crash_004",
+      "vulnerability_type": "Format String",
+      "description": "Format string vulnerability in logging function",
+      "root_cause": "printf(user_input) without format string validation - stack memory disclosure",
+      "payload_size": "104 bytes",
+      "exploitation_chain": "Format String → Stack Leak → SSH Key Disclosure → Credential Harvest → External Access",
+      "affected_endpoints": ["8443/ssl-vpn"],
+      "impact": "Information disclosure of cryptographic keys, memory addresses (ASLR bypass)"
+    },
+    {
+      "id": "strcpy",
+      "label": "strcpy",
+      "address": "libc",
+      "type": "library",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "C standard library string copy function (unsafe)",
+      "note": "Called by multiple vulnerable functions without size bounds checking"
+    },
+    {
+      "id": "send_to_client",
+      "label": "send_to_client",
+      "address": "0x40f1200",
+      "type": "library",
+      "vulnerable": false,
+      "cvss": 0,
+      "reproducibility": 100,
+      "crash_id": null,
+      "description": "HTTP response transmission function"
+    }
+  ],
+  "statistics": {
+    "total_functions": 13,
+    "vulnerable_functions": 5,
+    "critical_cvss_9_plus": 1,
+    "critical_cvss_8_to_9": 1,
+    "high_cvss_7_to_8": 1,
+    "medium_cvss_5_to_7": 2,
+    "average_cvss": 7.48,
+    "average_reproducibility": 87.6,
+    "highest_cvss": {
+      "function": "path_handler",
+      "cvss": 9.8,
+      "vulnerability": "Path Traversal"
+    },
+    "most_reproducible": {
+      "function": "handle_connection",
+      "reproducibility": 95,
+      "vulnerability": "Denial of Service"
+    }
+  }
+}

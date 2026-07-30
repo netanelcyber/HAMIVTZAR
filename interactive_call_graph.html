@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FortiOS 8.0.0 Binary Call Graph - CVE Analysis</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0f1419;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        #header {
+            background: #1a1f2e;
+            padding: 15px 20px;
+            border-bottom: 2px solid #e74c3c;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        #title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ecf0f1;
+        }
+
+        #subtitle {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 2px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        label {
+            font-size: 12px;
+            color: #bdc3c7;
+            font-weight: 500;
+        }
+
+        select, input {
+            padding: 6px 10px;
+            background: #2c3e50;
+            border: 1px solid #34495e;
+            color: #ecf0f1;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        select:hover, input:hover {
+            border-color: #e74c3c;
+        }
+
+        button {
+            padding: 6px 14px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #c0392b;
+        }
+
+        #graph-container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+
+        #canvas {
+            flex: 1;
+            background: #0f1419;
+            position: relative;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            stroke: #2c3e50;
+            stroke-width: 2px;
+            cursor: pointer;
+            transition: stroke-width 0.2s;
+        }
+
+        .node:hover {
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 8px rgba(231, 76, 60, 0.6));
+        }
+
+        .node.vulnerable {
+            stroke: #e74c3c;
+        }
+
+        .node.medium {
+            stroke: #f39c12;
+        }
+
+        .node.safe {
+            stroke: #27ae60;
+        }
+
+        .link {
+            stroke: #34495e;
+            stroke-width: 1.5px;
+            opacity: 0.6;
+        }
+
+        .link.call {
+            stroke: #3498db;
+        }
+
+        .link.jmp {
+            stroke: #f39c12;
+        }
+
+        .link.chain {
+            stroke: #e74c3c;
+            stroke-width: 2.5px;
+            opacity: 1;
+            filter: drop-shadow(0 0 4px rgba(231, 76, 60, 0.8));
+        }
+
+        .label {
+            font-size: 11px;
+            font-weight: 500;
+            pointer-events: none;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            fill: #ecf0f1;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        #tooltip {
+            position: absolute;
+            background: #1a1f2e;
+            border: 1px solid #e74c3c;
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 250px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+            display: none;
+        }
+
+        .tooltip-title {
+            font-weight: 600;
+            color: #ecf0f1;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #34495e;
+            padding-bottom: 6px;
+        }
+
+        .tooltip-item {
+            margin: 4px 0;
+            color: #bdc3c7;
+        }
+
+        .tooltip-label {
+            font-weight: 500;
+            color: #95a5a6;
+        }
+
+        .cvss-critical {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+
+        .cvss-high {
+            color: #f39c12;
+            font-weight: 600;
+        }
+
+        .cvss-medium {
+            color: #f1c40f;
+            font-weight: 600;
+        }
+
+        #sidebar {
+            width: 280px;
+            background: #1a1f2e;
+            border-left: 1px solid #34495e;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .legend {
+            margin-bottom: 20px;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            color: #ecf0f1;
+            margin-bottom: 10px;
+            font-size: 13px;
+            border-bottom: 1px solid #34495e;
+            padding-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid;
+        }
+
+        .legend-item.vulnerable .legend-color {
+            background: #e74c3c;
+            border-color: #c0392b;
+        }
+
+        .legend-item.high .legend-color {
+            background: #e67e22;
+            border-color: #d35400;
+        }
+
+        .legend-item.medium .legend-color {
+            background: #f39c12;
+            border-color: #e67e22;
+        }
+
+        .legend-item.safe .legend-color {
+            background: #27ae60;
+            border-color: #229954;
+        }
+
+        .stats {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #2c3e50;
+            border-radius: 3px;
+            border-left: 3px solid #e74c3c;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 6px;
+            color: #bdc3c7;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #ecf0f1;
+        }
+
+        .vulnerability-list {
+            margin-top: 15px;
+        }
+
+        .vuln-item {
+            padding: 10px;
+            background: #2c3e50;
+            border-left: 3px solid;
+            border-radius: 2px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 11px;
+        }
+
+        .vuln-item:hover {
+            background: #34495e;
+        }
+
+        .vuln-item.critical {
+            border-color: #e74c3c;
+        }
+
+        .vuln-item.high {
+            border-color: #f39c12;
+        }
+
+        .vuln-item.medium {
+            border-color: #f1c40f;
+        }
+
+        .vuln-name {
+            font-weight: 600;
+            color: #ecf0f1;
+            margin-bottom: 3px;
+        }
+
+        .vuln-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #95a5a6;
+            margin-top: 3px;
+        }
+
+        @media (max-width: 1024px) {
+            #sidebar {
+                width: 200px;
+                font-size: 11px;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1f2e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #34495e;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #45556b;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div>
+            <div id="title">FortiOS 8.0.0 Binary Call Graph</div>
+            <div id="subtitle">CVE Vulnerability Analysis - Interactive Function Call Relationships</div>
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <label>Filter:</label>
+                <select id="severityFilter">
+                    <option value="all">All Functions</option>
+                    <option value="vulnerable">Vulnerable Only</option>
+                    <option value="critical">Critical CVSS ≥ 8.0</option>
+                    <option value="high">High CVSS ≥ 7.0</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Chain:</label>
+                <select id="chainFilter">
+                    <option value="none">Hide Exploitation Chain</option>
+                    <option value="rce">RCE Chain (15 min)</option>
+                    <option value="all">Show All</option>
+                </select>
+            </div>
+            <button id="exportBtn">📊 Export PNG</button>
+        </div>
+    </div>
+
+    <div id="graph-container">
+        <div id="canvas"></div>
+        <div id="sidebar">
+            <div class="stats">
+                <div class="stat-item">
+                    <span>Total Functions:</span>
+                    <span class="stat-value" id="funcCount">13</span>
+                </div>
+                <div class="stat-item">
+                    <span>Vulnerable:</span>
+                    <span class="stat-value cvss-critical" id="vulnCount">5</span>
+                </div>
+                <div class="stat-item">
+                    <span>Avg CVSS:</span>
+                    <span class="stat-value cvss-critical" id="avgCvss">7.48</span>
+                </div>
+                <div class="stat-item">
+                    <span>Reproducibility:</span>
+                    <span class="stat-value" id="reproRate">87.6%</span>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-title">Color Legend</div>
+                <div class="legend-item vulnerable">
+                    <div class="legend-color"></div>
+                    <span>CRITICAL CVSS ≥ 9.0</span>
+                </div>
+                <div class="legend-item high">
+                    <div class="legend-color"></div>
+                    <span>HIGH CVSS 7.0-8.9</span>
+                </div>
+                <div class="legend-item medium">
+                    <div class="legend-color"></div>
+                    <span>MEDIUM CVSS 5.0-6.9</span>
+                </div>
+                <div class="legend-item safe">
+                    <div class="legend-color"></div>
+                    <span>SAFE / Library</span>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-title">Link Types</div>
+                <div class="legend-item" style="color: #3498db;">
+                    ━━━━ CALL instruction
+                </div>
+                <div class="legend-item" style="color: #f39c12;">
+                    ━━━━ JMP instruction
+                </div>
+                <div class="legend-item" style="color: #e74c3c;">
+                    ━━━━ Exploitation Chain
+                </div>
+            </div>
+
+            <div class="vulnerability-list">
+                <div class="legend-title">Vulnerabilities</div>
+                <div class="vuln-item critical" onclick="highlightFunction('path_handler')">
+                    <div class="vuln-name">Path Traversal</div>
+                    <div class="vuln-meta">
+                        <span>0x40d5a0</span>
+                        <span>CVSS 9.8</span>
+                        <span>78%</span>
+                    </div>
+                </div>
+                <div class="vuln-item critical" onclick="highlightFunction('process_hostname')">
+                    <div class="vuln-name">Buffer Overflow</div>
+                    <div class="vuln-meta">
+                        <span>0x40c8f20</span>
+                        <span>CVSS 8.6</span>
+                        <span>92%</span>
+                    </div>
+                </div>
+                <div class="vuln-item high" onclick="highlightFunction('validate_session')">
+                    <div class="vuln-name">Auth Bypass</div>
+                    <div class="vuln-meta">
+                        <span>0x40e1a20</span>
+                        <span>CVSS 7.2</span>
+                        <span>85%</span>
+                    </div>
+                </div>
+                <div class="vuln-item medium" onclick="highlightFunction('format_log_entry')">
+                    <div class="vuln-name">Format String</div>
+                    <div class="vuln-meta">
+                        <span>0x40e8b60</span>
+                        <span>CVSS 6.5</span>
+                        <span>88%</span>
+                    </div>
+                </div>
+                <div class="vuln-item medium" onclick="highlightFunction('handle_connection')">
+                    <div class="vuln-name">Denial of Service</div>
+                    <div class="vuln-meta">
+                        <span>0x40cc200</span>
+                        <span>CVSS 5.3</span>
+                        <span>95%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+        // Graph data: Nodes and links extracted from binary analysis
+        const nodesData = [
+            // Entry points
+            { id: "http_handler", label: "http_handler", address: "0x40aa00", type: "entry", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+            { id: "ssl_vpn_handler", label: "ssl_vpn_handler", address: "0x40ab00", type: "entry", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+
+            // Request handlers
+            { id: "handle_path_request", label: "handle_path_request", address: "0x40d100", type: "handler", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+            { id: "handle_hostname_request", label: "handle_hostname_request", address: "0x40c900", type: "handler", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+            { id: "handle_auth_request", label: "handle_auth_request", address: "0x40e0a0", type: "handler", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+            { id: "handle_log_request", label: "handle_log_request", address: "0x40e8a0", type: "handler", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+            { id: "handle_connection", label: "handle_connection", address: "0x40cc200", type: "vulnerable", vulnerable: true, cvss: 5.3, reproducibility: 95, crash_id: "crash_005" },
+
+            // Vulnerable functions (Primary targets)
+            { id: "path_handler", label: "path_handler", address: "0x40d5a0", type: "vulnerable", vulnerable: true, cvss: 9.8, reproducibility: 78, crash_id: "crash_003" },
+            { id: "process_hostname", label: "process_hostname", address: "0x40c8f20", type: "vulnerable", vulnerable: true, cvss: 8.6, reproducibility: 92, crash_id: "crash_002" },
+            { id: "validate_session", label: "validate_session", address: "0x40e1a20", type: "vulnerable", vulnerable: true, cvss: 7.2, reproducibility: 85, crash_id: "crash_001" },
+            { id: "format_log_entry", label: "format_log_entry", address: "0x40e8b60", type: "vulnerable", vulnerable: true, cvss: 6.5, reproducibility: 88, crash_id: "crash_004" },
+
+            // Library/system functions
+            { id: "strcpy", label: "strcpy", address: "libc", type: "library", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+            { id: "send_to_client", label: "send_to_client", address: "0x40f1200", type: "library", vulnerable: false, cvss: 0, reproducibility: 100, crash_id: null },
+        ];
+
+        const linksData = [
+            // Entry points to handlers
+            { source: "http_handler", target: "handle_path_request", type: "call", instruction: "call" },
+            { source: "http_handler", target: "handle_hostname_request", type: "call", instruction: "call" },
+            { source: "ssl_vpn_handler", target: "handle_auth_request", type: "call", instruction: "call" },
+            { source: "ssl_vpn_handler", target: "handle_log_request", type: "call", instruction: "call" },
+            { source: "ssl_vpn_handler", target: "handle_connection", type: "call", instruction: "call" },
+
+            // Handlers to vulnerable functions (Normal flow)
+            { source: "handle_path_request", target: "path_handler", type: "call", instruction: "call", chain: true },
+            { source: "handle_hostname_request", target: "process_hostname", type: "call", instruction: "call", chain: true },
+            { source: "handle_auth_request", target: "validate_session", type: "call", instruction: "call", chain: true },
+            { source: "handle_log_request", target: "format_log_entry", type: "call", instruction: "call", chain: true },
+
+            // Vulnerable functions to library functions
+            { source: "path_handler", target: "strcpy", type: "call", instruction: "call 0x40d5c1" },
+            { source: "process_hostname", target: "strcpy", type: "call", instruction: "call 0x40c8f39" },
+            { source: "format_log_entry", target: "strcpy", type: "call", instruction: "call" },
+
+            // Handlers back to send
+            { source: "path_handler", target: "send_to_client", type: "call", instruction: "call" },
+            { source: "handle_connection", target: "strcpy", type: "call", instruction: "call" },
+        ];
+
+        // Setup SVG and D3
+        const width = document.getElementById('canvas').clientWidth;
+        const height = document.getElementById('canvas').clientHeight;
+
+        const svg = d3.select('#canvas')
+            .append('svg')
+            .attr('width', width)
+            .attr('height', height);
+
+        // Add zoom behavior
+        const g = svg.append('g');
+        const zoom = d3.zoom()
+            .on('zoom', (event) => {
+                g.attr('transform', event.transform);
+            });
+
+        svg.call(zoom);
+
+        // Create simulation
+        const simulation = d3.forceSimulation(nodesData)
+            .force('link', d3.forceLink(linksData)
+                .id(d => d.id)
+                .distance(100)
+                .strength(0.5))
+            .force('charge', d3.forceManyBody().strength(-400))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide().radius(60));
+
+        // Draw links
+        const link = g.selectAll('line')
+            .data(linksData)
+            .enter()
+            .append('line')
+            .attr('class', d => `link ${d.type} ${d.chain ? 'chain' : ''}`)
+            .attr('marker-end', d => d.chain ? 'url(#arrowRed)' : 'url(#arrow)');
+
+        // Arrow markers
+        svg.append('defs').selectAll('marker')
+            .data(['arrow', 'arrowRed'])
+            .enter()
+            .append('marker')
+            .attr('id', d => d)
+            .attr('markerWidth', 10)
+            .attr('markerHeight', 10)
+            .attr('refX', 30)
+            .attr('refY', 3)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,0 L0,6 L9,3 z')
+            .attr('fill', d => d === 'arrowRed' ? '#e74c3c' : '#3498db');
+
+        // Draw nodes
+        const node = g.selectAll('circle')
+            .data(nodesData)
+            .enter()
+            .append('circle')
+            .attr('class', d => {
+                if (d.cvss >= 9.0) return 'node vulnerable';
+                if (d.cvss >= 7.0) return 'node vulnerable';
+                if (d.cvss >= 5.0) return 'node medium';
+                return 'node safe';
+            })
+            .attr('r', d => d.vulnerable ? 20 : 15)
+            .attr('fill', d => {
+                if (d.cvss >= 9.0) return '#e74c3c';
+                if (d.cvss >= 7.0) return '#e67e22';
+                if (d.cvss >= 5.0) return '#f39c12';
+                return '#3498db';
+            })
+            .call(d3.drag()
+                .on('start', dragStarted)
+                .on('drag', dragged)
+                .on('end', dragEnded));
+
+        // Add labels
+        const labels = g.selectAll('text')
+            .data(nodesData)
+            .enter()
+            .append('text')
+            .attr('class', 'label')
+            .text(d => d.label.substring(0, 15))
+            .attr('font-size', d => d.vulnerable ? 11 : 10);
+
+        // Tooltip
+        const tooltip = document.getElementById('tooltip');
+
+        node.on('mouseenter', function(event, d) {
+            tooltip.innerHTML = `
+                <div class="tooltip-title">${d.label}</div>
+                <div class="tooltip-item">
+                    <span class="tooltip-label">Address:</span> ${d.address}
+                </div>
+                <div class="tooltip-item">
+                    <span class="tooltip-label">Type:</span> ${d.type}
+                </div>
+                ${d.vulnerable ? `
+                    <div class="tooltip-item">
+                        <span class="tooltip-label">CVSS:</span> <span class="${d.cvss >= 9 ? 'cvss-critical' : 'cvss-high'}">${d.cvss}</span>
+                    </div>
+                    <div class="tooltip-item">
+                        <span class="tooltip-label">Reproducibility:</span> ${d.reproducibility}%
+                    </div>
+                    <div class="tooltip-item">
+                        <span class="tooltip-label">Crash ID:</span> ${d.crash_id}
+                    </div>
+                ` : ''}
+            `;
+            tooltip.style.display = 'block';
+
+            // Highlight connected nodes
+            link.style('opacity', l => l.source.id === d.id || l.target.id === d.id ? 1 : 0.2);
+            node.style('opacity', n => n.id === d.id ||
+                nodesData.find(x => linksData.some(l => (l.source.id === d.id && l.target.id === n.id) ||
+                (l.target.id === d.id && l.source.id === n.id))) ? 1 : 0.3);
+        })
+        .on('mouseleave', function() {
+            tooltip.style.display = 'none';
+            link.style('opacity', 0.6);
+            node.style('opacity', 1);
+        })
+        .on('mousemove', function(event) {
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY + 10) + 'px';
+        });
+
+        // Update positions
+        simulation.on('tick', () => {
+            link.attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+
+            node.attr('cx', d => d.x)
+                .attr('cy', d => d.y);
+
+            labels.attr('x', d => d.x)
+                .attr('y', d => d.y);
+        });
+
+        // Drag handlers
+        function dragStarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragEnded(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Filter handlers
+        function highlightFunction(funcId) {
+            const targetNode = nodesData.find(n => n.id === funcId);
+            if (!targetNode) return;
+
+            node.style('opacity', n =>
+                n.id === funcId ||
+                linksData.some(l => (l.source.id === funcId && l.target.id === n.id) ||
+                                    (l.target.id === funcId && l.source.id === n.id)) ? 1 : 0.2
+            );
+
+            link.style('opacity', l =>
+                l.source.id === funcId || l.target.id === funcId ? 1 : 0.2
+            );
+        }
+
+        document.getElementById('severityFilter').addEventListener('change', (e) => {
+            const filter = e.target.value;
+            node.style('opacity', n => {
+                if (filter === 'all') return 1;
+                if (filter === 'vulnerable' && n.vulnerable) return 1;
+                if (filter === 'critical' && n.cvss >= 8.0) return 1;
+                if (filter === 'high' && n.cvss >= 7.0) return 1;
+                return 0.2;
+            });
+        });
+
+        document.getElementById('chainFilter').addEventListener('change', (e) => {
+            const filter = e.target.value;
+            if (filter === 'none') {
+                link.style('opacity', 0.6);
+                link.classed('chain', false);
+            } else if (filter === 'rce') {
+                link.classed('chain', d => d.chain || false);
+            }
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const svgString = new XMLSerializer().serializeToString(document.querySelector('svg'));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            const image = new Image();
+            image.onload = () => {
+                ctx.drawImage(image, 0, 0);
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'fortios_call_graph.png';
+                link.click();
+            };
+            image.src = 'data:image/svg+xml;base64,' + btoa(svgString);
+        });
+    </script>
+</body>
+</html>
