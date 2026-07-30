@@ -20,216 +20,268 @@ This guide coordinates the responsible disclosure of 5 critical zero-day vulnera
 
 ---
 
+## STRATEGY: HYBRID AGGRESSIVE MODEL (CVE CNA + Israeli Stakeholders)
+
+**Approved by User: 2026-07-30**
+
+This hybrid approach prioritizes speed and CVE authority while maintaining Israeli stakeholder engagement:
+
+**Phase 1 (Day 1): AGGRESSIVE CVE CNA SEND**
+- All 4 critical CVE authorities simultaneously
+- Fastest path to CVE assignment and patch coordination
+- Direct vendor-to-CNA technical coordination
+
+**Phase 2 (Day 2-3): ISRAELI STAKEHOLDER ENGAGEMENT**
+- Direct outreach to telecom companies, banking, insurance
+- National-level threat awareness and coordination
+- Builds Israeli government response capability
+
+**Rationale:**
+- CVSS 9.8 CRITICAL = Emergency bypass standard channels
+- CNA organizations can act faster than government
+- Israeli stakeholders engage Day 2-3 when CNA process is underway
+- Maintains diplomatic/corporate relationships without slowing disclosure
+
+---
+
 ## Part 1: Complete Draft Inventory
 
-### Priority 1 Agencies (Day 0-2)
-**Send Immediately - Highest Priority**
+### Priority 1 - CVE CNA (Day 1, SIMULTANEOUS SEND)
+**AGGRESSIVE EMERGENCY SEND - All 4 at Same Time**
 
-| # | Agency | Email | Draft ID | Status | Response SLA |
-|---|--------|-------|----------|--------|--------------|
-| 1 | CISA Central | central@cisa.dhs.gov | r4894174915098727280 | ✅ Ready | 24 hours |
-| 2 | MITRE CVE Authority | cve@mitre.org | r6786515520313907192 | ✅ Ready | 48 hours |
-| 3 | Fortinet PSIRT | security@fortinet.com | r4696815479965455141 | ✅ Ready | 24 hours |
+| # | Organization | Email | Type | Draft ID | Status | Response SLA |
+|---|--------------|-------|------|----------|--------|--------------|
+| 1 | Fortinet PSIRT | security@fortinet.com | Vendor CNA | r4696815479965455141 | ✅ Ready | 24 hours |
+| 2 | CERT/CC | vulnerability@cert.org | CNA Authority | [Existing] | ✅ Ready | 24 hours |
+| 3 | MITRE | cve@mitre.org | Primary CVE Authority | r6786515520313907192 | ✅ Ready | 48 hours |
+| 4 | CISA | central@cisa.dhs.gov | U.S. Critical Infra | r4894174915098727280 | ✅ Ready | 24 hours |
 
 **Key Points:**
-- These are the critical chain: U.S. cybersecurity authority, CVE assignment authority, and affected vendor
-- All three must be notified within the first 2 days
-- Fortinet gets same-day notification to start patch development clock
-- Expect immediate acknowledgment and technical team engagement
+- **Simultaneous send required** - All 4 emails sent at exact same time
+- Fortinet = patch authority (can push emergency update within days)
+- CERT/CC + MITRE = CVE assignment (CNA organizations)
+- CISA = U.S. critical infrastructure alert (hospital systems)
+- Document exact send time to start 90-day embargo clock
+- Expect first responses within 12-24 hours
 
 ---
 
-### Priority 2 Agencies (Day 1-3)
-**High-Priority Government Coordination**
+### Priority 2 - Israeli Stakeholders (Day 2-3)
+**Direct Corporate Outreach - Israeli Critical Infrastructure**
 
-| # | Agency | Email | Draft ID | Status | Response SLA |
-|---|--------|-------|----------|--------|--------------|
-| 4 | Israeli Cyber Directorate (עברית) | cyber@gov.il | r7484453159686098591 | ✅ Ready | 24 hours |
-| 5 | UK NCSC | vulnerability-reports@ncsc.gov.uk | r-8443930703632580024 | ✅ Ready | 48 hours |
-| 6 | H-ISAC Healthcare | reports@h-isac.org | r5246931107646631082 | ✅ Ready | 48 hours |
+| # | Organization | Type | Email | Status | Contact |
+|---|--------------|------|-------|--------|---------|
+| 5 | Bezeq (Telecom) | Telecom Provider | security@bezeq.co.il | 📋 Need contact | Israel's largest telecom |
+| 6 | Cellcom (Telecom) | Telecom Provider | security@cellcom.co.il | 📋 Need contact | Major telecom operator |
+| 7 | Partner (Telecom) | Telecom Provider | security@partner.co.il | 📋 Need contact | Major telecom operator |
+| 8 | Golan (Telecom) | Telecom Provider | security@golan.co.il | 📋 Need contact | Regional telecom |
+| 9 | Bank of Israel | Banking/Finance | security@bankisrael.org.il | ✅ Ready | Central bank - financial system |
+| 10 | Israeli Insurance Companies | Insurance/Finance | [Consortium contact] | 📋 Need contact | Financial system protection |
 
 **Key Points:**
-- Israeli Cyber Directorate: Direct line to national cyber authority; includes hospital system threat assessment
-- NCSC (UK): Five Eyes partner and international coordination hub
-- H-ISAC: Healthcare sector critical infrastructure (hospitals are in your testing lab context)
+- Direct outreach to critical infrastructure operators (not government)
+- Telecom companies: Internet connectivity, mobile networks, backbone infrastructure
+- Bank of Israel: Financial system coordination and banking sector alerts
+- Insurance sector: Risk management and financial system stability
+- These organizations will engage Day 2-3 after CNA process begins Day 1
+- No government bureaucracy delays - direct technical coordination with operators
 
 ---
 
-### Priority 3 Agencies (Day 2-7)
-**International Partners & Backup CVE Authority**
+### Priority 3 - Global ISACs (Day 2-3, Parallel with Israeli Stakeholders)
+**Sector-Specific Threat Intelligence & Information Sharing**
 
-| # | Agency | Email | Draft ID | Status | Response SLA |
-|---|--------|-------|----------|--------|--------------|
-| 7 | CERT/CC | vulnerability@cert.org | [Draft ID] | ✅ Ready | 72 hours |
-| 8 | EU ENISA | vulnerability@enisa.europa.eu | [Draft ID] | ✅ Ready | 72 hours |
-| 9 | German BSI | info@bsi.bund.de | [Draft ID] | ✅ Ready | 72 hours |
-| 10 | French ANSSI | vulnerability@anssi.gouv.fr | [Draft ID] | ✅ Ready | 72 hours |
+| # | ISAC | Email | Sector | Status | Response SLA |
+|---|------|-------|--------|--------|--------------|
+| 11 | FS-ISAC | [Contact] | Financial Services | ✅ Ready | 24 hours |
+| 12 | E-ISAC | [Contact] | Energy/Utilities | ✅ Ready | 24 hours |
+| 13 | H-ISAC | reports@h-isac.org | Healthcare/Hospitals | ✅ Ready | 24 hours |
+| 14 | Telecom ISAC | [Contact] | Telecommunications | ✅ Ready | 24 hours |
+| 15 | Water/Wastewater ISAC | incident@waterisac.org | Water Infrastructure | ✅ Ready | 48 hours |
+| 16 | Manufacturing ISAC | vulnerability@manufacturing-isac.org | Manufacturing | ✅ Ready | 48 hours |
+| 17 | Transportation ISAC | incident@transportation-isac.org | Transportation | ✅ Ready | 48 hours |
+| 18 | Chemical ISAC | incident@chemin-isac.org | Chemical Industry | ✅ Ready | 48 hours |
 
 **Key Points:**
-- CERT/CC: Backup/alternative CVE authority if MITRE is delayed
-- ENISA: EU-level coordination and threat assessment
-- BSI & ANSSI: Major EU cybersecurity authorities for international coordination
+- ISACs provide sector-specific threat intelligence and coordinated response
+- H-ISAC highest priority (hospitals in FortiOS deployment base)
+- Parallel send with Israeli stakeholders (Day 2-3)
+- Each ISAC coordinates threat response within their sector
+- Commercial ISACs respond 24/7 (faster than government)
 
 ---
 
-### Priority 4 Agencies & International Partners (Day 3-10)
-**International Coordination & Commercial ISACs**
+### Priority 4 - International Partners (Day 3-5)
+**Five Eyes & International Cybersecurity Coordination**
 
-#### International Cybersecurity Agencies
-| # | Agency | Contact | Draft ID | Status | Response SLA |
-|---|--------|---------|----------|--------|--------------|
-| 11 | Australia ACSC | [Contact Info] | [Draft ID] | ✅ Ready | 5 days |
-| 12 | Canada CCCS | [Contact Info] | [Draft ID] | ✅ Ready | 5 days |
-| 13 | Japan NISC | [Contact Info] | [TO CREATE] | 📋 Pending | 5 days |
-| 14 | South Korea KISA | vulreport@kisa.or.kr | [TO CREATE] | 📋 Pending | 5 days |
-
-#### Sector-Specific ISACs (Critical Infrastructure)
-| # | ISAC | Email | Draft ID | Status | Response SLA |
-|---|------|-------|----------|--------|--------------|
-| 15 | E-ISAC (Energy) | [Contact] | [Draft ID] | ✅ Ready | 5 days |
-| 16 | FS-ISAC (Financial) | [Contact] | [Draft ID] | ✅ Ready | 5 days |
-| 17 | Telecom ISAC | [Contact] | [Draft ID] | ✅ Ready | 5 days |
-| 18 | H-ISAC (Healthcare - Secondary) | [Contact] | [Draft ID] | ✅ Ready | 5 days |
-| 19 | Water/Wastewater ISAC | incident@waterisac.org | [TO CREATE] | 📋 Pending | 5 days |
-| 20 | Manufacturing ISAC | vulnerability@manufacturing-isac.org | [TO CREATE] | 📋 Pending | 5 days |
-| 21 | Transportation ISAC | incident@transportation-isac.org | [TO CREATE] | 📋 Pending | 5 days |
-| 22 | Chemical ISAC | incident@chemin-isac.org | [TO CREATE] | 📋 Pending | 5 days |
+| # | Country/Agency | Email | Status | Response SLA |
+|---|----------------|-------|--------|--------------|
+| 19 | UK NCSC | vulnerability-reports@ncsc.gov.uk | ✅ Ready | 48 hours |
+| 20 | Australia ACSC | [Contact] | ✅ Ready | 72 hours |
+| 21 | Canada CCCS | [Contact] | ✅ Ready | 72 hours |
+| 22 | EU ENISA | vulnerability@enisa.europa.eu | ✅ Ready | 72 hours |
+| 23 | German BSI | info@bsi.bund.de | ✅ Ready | 72 hours |
+| 24 | French ANSSI | vulnerability@anssi.gouv.fr | ✅ Ready | 72 hours |
+| 25 | Japan NISC | [Contact] | 📋 Pending | 5 days |
+| 26 | South Korea KISA | vulreport@kisa.or.kr | 📋 Pending | 5 days |
 
 **Key Points:**
-- International partners: Five Eyes + Asian-Pacific coordination
-- ISACs: Each sector needs industry-specific threat briefing (FortiGate critical to each sector)
+- Five Eyes coordination (UK, AU, CA priority)
+- EU agencies (ENISA, BSI, ANSSI) coordinate European response
+- Asian partners (Japan NISC, South Korea KISA) for global coverage
+- Stagger to avoid notification fatigue (Day 3, 4, 5)
 
 ---
 
-### Priority 5 - Israeli Economic Sectors (Day 3-10)
-**Hebrew-Language Notifications - Critical Infrastructure Focus**
+### Priority 5 - Escalation (Day 1-7 if needed)
+**IF CRITICAL SLAs MISSED - Immediate Escalation**
 
-| # | Sector | Organization | Email | Draft ID | Status | Response SLA |
-|---|--------|--------------|-------|----------|--------|--------------|
-| 23 | Cyber Authority (עברית) | National Cyber Directorate | cyber@gov.il | r7484453159686098591 | ✅ Ready | 24 hours |
-| 24 | Financial Sector (עברית) | Bank of Israel / FinTech | security@bankisrael.org.il | r-9181827638977437513 | ✅ Ready | 48 hours |
-| 25 | Critical Infrastructure (עברית) | Israel Electric Company / Water Authority | security@iec.co.il | r475926887400425034 | ✅ Ready | 48 hours |
-| 26 | Healthcare Sector (עברית) | Clalit Health Services | security@clalit.org.il | r-6404669475422803725 | ✅ Ready | 48 hours |
-
-**Key Notes:**
-- All drafts in Hebrew (עברית) with proper researcher name: שטרן (with shin ש)
-- Sector-specific threat briefings emphasizing financial system stability, power grid continuity, water supply, and patient safety
-- Israeli economy focus as requested by user
-
----
-
-### Priority 6 - Escalation (Day 7-14 if no response)
-
-| # | Agency | Email | Condition | Action |
-|---|--------|-------|-----------|--------|
-| 27 | FBI Cybersecurity | [Contact] | No CISA response after 7 days | Escalate CRITICAL alert |
-| 28 | Department of Defense CISA | [Contact] | Critical infrastructure threat | Parallel notification |
+| # | Trigger | Contact | Action | Timeline |
+|---|---------|---------|--------|----------|
+| 27 | Fortinet PSIRT no response (24h) | Fortinet Legal | Escalate to C-suite | Day 2 |
+| 28 | CISA no response (24h) | FBI Cybersecurity | Escalate to federal level | Day 2 |
+| 29 | MITRE/CERT no response (48h) | Alternative CVE path | Request emergency CVE | Day 3 |
+| 30 | No CNA response (72h) | Israeli INCD (cyber@gov.il) | Emergency government escalation | Day 4 |
 
 **Key Points:**
-- These are fallback escalation contacts
-- Only used if Priority 1-2 agencies miss their SLAs
-- Automatic trigger if no acknowledgment within response windows
+- 24-hour SLAs for Fortinet and CISA (vendor + U.S. critical infra)
+- Escalation is automatic if no acknowledgment
+- Israeli government (INCD) used only as escalation path if CNA channels fail
+- This hybrid model prioritizes speed → escalates to government only if needed
 
 ---
 
 ## Part 2: Sending Strategy & Timeline
 
-### Phase 1: Priority 1 Notifications (DAY 1)
-**All 3 agencies - Simultaneous Send**
+### Phase 1: AGGRESSIVE CVE CNA SEND (DAY 1 - SIMULTANEOUS)
+**Critical Emergency Notification - All 4 at Exact Same Time**
 
 **Action:**
-1. Open all 3 Gmail drafts (CISA, MITRE, Fortinet)
-2. Review each for accuracy (name: Netanel Stern שטרן, email: nsh531@gmail.com, timezone: UTC+2)
-3. Send simultaneously at same time to start embargo clock
-4. Create email tracking log (see Part 3 below)
+1. Set specific send time (e.g., 09:00 UTC+2)
+2. Open all 4 Gmail drafts side-by-side (Fortinet, CERT/CC, MITRE, CISA)
+3. Verify each email:
+   - Researcher: Netanel Stern (שטרן)
+   - Email: nsh531@gmail.com
+   - Timezone: UTC+2
+   - Subject includes: "CVSS 9.8 CRITICAL" or "EMERGENCY"
+4. **Send all 4 simultaneously** (critical for embargo timing)
+5. Document exact send time in tracking log
+6. Set response SLA timers:
+   - Fortinet: 24h
+   - CISA: 24h
+   - CERT/CC: 24h
+   - MITRE: 48h
 
-**Critical:** These three start the 90-day countdown. Document the exact send time.
+**Expected Immediate Responses (12-24h):**
+- Fortinet: Technical team assignment, PSIRT escalation
+- CISA: Incident coordinator assignment
+- CERT/CC: Acknowledgment, CVE coordination initiation
+- MITRE: CVE submission form
+
+**Escalation Trigger:**
+- IF no response from any of 4 by 24h → Escalate immediately (see Phase 5)
+
+---
+
+### Phase 2: ISRAELI STAKEHOLDERS (DAY 2-3)
+**Direct Corporate Outreach - Israeli Critical Infrastructure**
+
+**Action:**
+1. **Day 2 Morning**: Send to Israeli telecom companies (Bezeq, Cellcom, Partner, Golan)
+   - Email: security@ addresses for each
+   - Subject: Urgent FortiOS vulnerability affecting telecom networks
+   - Coordinate with existing CISA/Fortinet timeline
+
+2. **Day 2 Afternoon**: Send to Bank of Israel
+   - Email: security@bankisrael.org.il
+   - Subject: Critical FortiOS vulnerability affecting financial systems
+   - Include banking sector impact assessment
+
+3. **Day 3 Morning**: Send to Israeli insurance companies
+   - Subject: Critical FortiOS vulnerability - financial sector impact
+   - Coordinate through insurance industry consortium
+
+**Rationale:**
+- Direct outreach to infrastructure operators (not government)
+- Allows 24h for CNA process to begin before Israeli domestic engagement
+- Demonstrates coordinated international response
+- Builds Israeli stakeholder confidence in disclosure process
 
 **Expected Responses:**
-- CISA: Acknowledge within 24h, assign incident coordinator
-- MITRE: Ask for CVE submission form, provide timeline
-- Fortinet: Acknowledge, request technical details, start PSIRT escalation
+- Telecom companies: 24-48h (critical infrastructure urgency)
+- Bank of Israel: 24h (central bank priority)
+- Insurance: 48h (coordination through consortiums)
 
 ---
 
-### Phase 2: Priority 2 Notifications (DAY 2)
-**Israeli Authority + International Partners**
+### Phase 3: GLOBAL ISACs (DAY 2-3, PARALLEL with Phase 2)
+**Sector-Specific Threat Intelligence**
 
 **Action:**
-1. Send Israeli Cyber Directorate draft (Hebrew version)
-2. Send UK NCSC draft
-3. Send H-ISAC Healthcare draft
-4. Wait for Day 2 responses from Priority 1 before proceeding
+1. **Day 2 Morning** (with Israeli stakeholders):
+   - Send to FS-ISAC (Financial Services) - highest priority
+   - Send to H-ISAC (Healthcare) - hospital systems affected
+   - Send to E-ISAC (Energy) - critical infrastructure
+
+2. **Day 2 Afternoon**:
+   - Send to Telecom ISAC (telecommunications)
+   - Send to Water/Wastewater ISAC
+
+3. **Day 3 Morning**:
+   - Send to Manufacturing, Transportation, Chemical ISACs
 
 **Rationale:**
-- Allow CISA/Fortinet 24h acknowledgment before broader notification
-- Focus on government-to-government coordination
-- Healthcare sector overlap with lab environment
+- ISACs provide 24/7 sector-specific threat response
+- Higher priority ISACs (Finance, Healthcare, Energy) go first
+- Parallel with Israeli stakeholders (not sequential)
+- Each ISAC coordinates threat response within their sector
+
+**Expected Responses:**
+- Financial/Healthcare/Energy: 24h (critical sectors)
+- Other sectors: 24-48h
 
 ---
 
-### Phase 3: Priority 3 Notifications (DAY 3-5)
-**European & International CVE Coordination**
+### Phase 4: INTERNATIONAL PARTNERS (DAY 3-5)
+**Five Eyes & Global Cybersecurity Coordination**
 
 **Sequence:**
-- Day 3: CERT/CC (as backup CVE authority)
-- Day 4: EU ENISA (European coordination hub)
-- Day 5: German BSI + French ANSSI (EU members)
+- **Day 3**: UK NCSC (Five Eyes lead, fastest coordination)
+- **Day 4**: Australia ACSC, Canada CCCS (Five Eyes partners)
+- **Day 5**: EU ENISA (European coordination hub)
+- **Day 5**: German BSI, French ANSSI (EU member states)
+- **Day 5-6**: Japan NISC, South Korea KISA (Asian-Pacific)
 
 **Rationale:**
-- Stagger European notifications to avoid notification fatigue
-- CERT/CC first in case MITRE needs backup
-- ENISA as coordination point for EU-wide alert
+- Five Eyes coordinate first (fastest trusted partnership)
+- EU agencies next (European critical infrastructure)
+- Asian partners complete global coverage
+- Stagger to avoid notification fatigue
 
 ---
 
-### Phase 4: Priority 4 Notifications (DAY 5-10)
-**International Partners + Sector ISACs**
+### Phase 5: ESCALATION TRIGGERS (DAY 1-4, IF NEEDED)
 
-**Sequence:**
-- Day 5-6: Five Eyes partners (Australia ACSC, Canada CCCS)
-- Day 7: NISAC/Energy sector (E-ISAC, Energy grid critical)
-- Day 8: Financial sector (FS-ISAC, banking system threat)
-- Day 9: Healthcare/Water (H-ISAC secondary, Water ISAC)
-- Day 10: Manufacturing, Transportation, Chemical ISACs
+**IF Fortinet PSIRT no response (24h):**
+- Contact: Fortinet Legal / Board escalation
+- Action: Escalate CVSS 9.8 emergency to C-suite
+- Timeline: Day 2
 
-**Rationale:**
-- Space out ISAC notifications to allow individual sector coordination
-- Energy sector first (critical infrastructure priority)
-- Financial sector second (economic impact)
-- Other sectors follow
+**IF CISA no response (24h):**
+- Contact: FBI Cybersecurity Division
+- Action: Escalate to federal law enforcement coordination
+- Timeline: Day 2
 
----
+**IF MITRE/CERT/CC no response (48h):**
+- Contact: Alternative CVE authority
+- Action: File emergency CVE request through backup channel
+- Timeline: Day 3
 
-### Phase 5: Priority 5 Israeli Sectors (DAY 3-10)
-**Hebrew-Language Sector Notifications (Parallel to Priority 4)**
-
-**Sequence:**
-- Day 3 (Parallel to Phase 3): Israeli Cyber Directorate (government level)
-- Day 4-5: Israeli Financial Sector (Bank of Israel, FinTech companies)
-- Day 5-6: Israeli Critical Infrastructure (Israel Electric Company, Water Authority)
-- Day 6-7: Israeli Healthcare (Clalit Health Services, Hospital networks)
-
-**Rationale:**
-- Parallel with international notifications (not sequential)
-- Government-to-government first
-- Economic sector coordination
-- Healthcare last (lower priority than power/water)
-
----
-
-### Phase 6: Escalation Triggers (DAY 7+ if needed)
-
-**IF** no acknowledgment from CISA within 24h:
-- Escalate to FBI Cybersecurity Division
-
-**IF** no acknowledgment from Fortinet within 24h:
-- Escalate to Fortinet board of directors legal team
-- Add to CERT/CC escalation report
-
-**IF** multiple non-responses within 48h:
-- Request CISA to conduct outreach
-- Consider media briefing (if critical infrastructure at immediate risk)
+**IF CRITICAL SILENCE (72h+):**
+- Contact: Israeli National Cyber Directorate (cyber@gov.il)
+- Action: Government-level escalation
+- Timeline: Day 4
+- Rationale: Only use government escalation if commercial CNA channels completely fail
 
 ---
 
