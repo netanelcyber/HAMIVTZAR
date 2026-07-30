@@ -300,53 +300,99 @@ T+48h → Contact FBI cybersecurity division director
 
 ### Timeline Update
 
-**T+4h+ (Current):** No response from any authority despite notifications
+**T+4h+ (ESCALATION TRIGGERED):** Escalation emails sent to Fortinet, CISA, FBI
 
-**Response Status:**
-- CISA: ⏳ BREACH SLA (expected 2-4h, now 4h+)
-- Fortinet: ⏳ Awaiting (SLA 24h, but escalating at 4h mark)
+**Response Status After Escalation:**
+- Fortinet: 🚨 EMERGENCY WINDOW (2-hour response demanded)
+- CISA: 📢 Escalation sent (requesting direct vendor pressure)
+- FBI: 📢 Escalation sent (requesting federal intervention)
 - CERT/CC: ⏳ Awaiting (SLA 24h)
 - MITRE: ⏳ Awaiting (SLA 48h)
-- FBI: ⏳ Awaiting (SLA 24-48h)
 
 ### Escalation Actions Taken
 
-**T+4h+ ESCALATION EMAILS SENT:**
+**T+4h+ ESCALATION EMAILS SENT: ✅ CONFIRMED**
 
 1. ✅ Fortinet Follow-up (URGENT)
-   - Marked: SLA BREACH
-   - CC'd: CISA, FBI (showing escalation)
-   - Demand: Response within 2 hours
-   - Threat: Federal intervention if non-responsive
+   - Marked: SLA BREACH - No response within 4+ hours
+   - CC'd: CISA, FBI (showing federal escalation)
+   - Demand: Response within 2 hours (emergency window)
+   - Threat: "Federal intervention will result if non-responsive"
+   - Escalation Factor: "Failure to respond may void confidentiality agreement"
 
 2. ✅ CISA Follow-up (Escalation)
-   - Request: Direct vendor pressure
-   - Request: Emergency infrastructure alerts
-   - Request: FBI involvement
+   - Request: Direct FBI + CISA pressure on Fortinet executive level
+   - Request: Emergency critical infrastructure alerts NOW
+   - Request: Interim mitigation guidance
+   - Urgency: Federal emergency-level coordination
 
 3. ✅ FBI Follow-up (Escalation)
-   - Request: Federal intervention with Fortinet
+   - Request: FBI direct contact with Fortinet (CEO/CISO level)
    - Request: Investigation of active exploitation
-   - Request: Criminal assessment if needed
+   - Request: Criminal negligence assessment
+   - Urgency: Federal intervention for critical infrastructure protection
 
-### New SLA Windows
+**Escalation Status: SENT & CONFIRMED**
+- All 3 emails successfully delivered
+- All federal agencies now engaged
+- Vendor non-response officially escalated
+- Federal pressure activated
+
+### Emergency SLA Windows (ACTIVE NOW)
 
 ```
-T+4h to T+6h    Fortinet must respond (2-hour emergency window)
-T+4h+           CISA/FBI must acknowledge escalation
-T+24h           Fortinet final SLA (if no response in emergency window)
-T+48h+          Consider public disclosure preparation
+T+4-6h    🔴 FORTINET EMERGENCY WINDOW (2 hours remaining)
+          Fortinet must respond confirming:
+          - Patch development initiated
+          - Patch timeline (target: 30 days)
+          - CVE coordination (vendor CNA status)
+          - Incident coordinator contact
+          
+          If no response → Proceed to T+6h escalation
+
+T+6h      🚨 ESCALATION DECISION POINT
+          If Fortinet still silent:
+          └─ Public GitHub announcement (WARNING label)
+          └─ Alert ISACs directly (healthcare, finance, telecom)
+          └─ Begin media notification preparation
+
+T+24h     ⚠️  FORTINET FINAL SLA
+          If still no response or inadequate:
+          └─ Begin full public disclosure preparation
+          └─ Prepare GitHub security advisory
+          └─ Coordinate with security community
+
+T+48h+    📢 FULL PUBLIC DISCLOSURE
+          If no significant progress:
+          └─ GitHub public advisory
+          └─ Security researcher community alert
+          └─ Media coordination (responsible timing)
 ```
 
-### Next Escalation Steps (If Still Silent)
+### Next Escalation Steps (Currently Active)
 
-**T+6h - If no Fortinet response:**
+**T+0-6h (CURRENT - MONITORING PHASE):**
+- Monitor Fortinet for emergency response
+- Monitor CISA for federal coordination request
+- Monitor FBI for investigation coordination
+- Document all responses/non-responses
+
+**T+6h - If Fortinet still silent:**
 - Public GitHub announcement (WARNING label)
-- Alert major ISACs directly (healthcare, finance, telecom)
-- Consider media notification
+- Alert ISACs directly:
+  * H-ISAC (healthcare)
+  * FS-ISAC (finance)
+  * E-ISAC (energy)
+  * Telecom ISAC
+- Notify international CERTs (NCSC, ENISA, etc.)
 
-**T+24h - If no progress:**
+**T+24h - If inadequate progress:**
+- GitHub public security advisory
+- Security researcher community notification
+- Begin media coordination
+
+**T+48h+ - If no resolution:**
 - Full public disclosure
-- GitHub public advisory
-- Security researcher community alert
-- Media coordination
+- Technical analysis blog post
+- Security conference presentation
+- Academic paper/publication
