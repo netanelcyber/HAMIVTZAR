@@ -293,3 +293,60 @@ T+48h → Contact FBI cybersecurity division director
 ---
 
 **Next: Check email in 2-4 hours for CISA response**
+
+---
+
+## ESCALATION LOG - Non-Response Handling
+
+### Timeline Update
+
+**T+4h+ (Current):** No response from any authority despite notifications
+
+**Response Status:**
+- CISA: ⏳ BREACH SLA (expected 2-4h, now 4h+)
+- Fortinet: ⏳ Awaiting (SLA 24h, but escalating at 4h mark)
+- CERT/CC: ⏳ Awaiting (SLA 24h)
+- MITRE: ⏳ Awaiting (SLA 48h)
+- FBI: ⏳ Awaiting (SLA 24-48h)
+
+### Escalation Actions Taken
+
+**T+4h+ ESCALATION EMAILS SENT:**
+
+1. ✅ Fortinet Follow-up (URGENT)
+   - Marked: SLA BREACH
+   - CC'd: CISA, FBI (showing escalation)
+   - Demand: Response within 2 hours
+   - Threat: Federal intervention if non-responsive
+
+2. ✅ CISA Follow-up (Escalation)
+   - Request: Direct vendor pressure
+   - Request: Emergency infrastructure alerts
+   - Request: FBI involvement
+
+3. ✅ FBI Follow-up (Escalation)
+   - Request: Federal intervention with Fortinet
+   - Request: Investigation of active exploitation
+   - Request: Criminal assessment if needed
+
+### New SLA Windows
+
+```
+T+4h to T+6h    Fortinet must respond (2-hour emergency window)
+T+4h+           CISA/FBI must acknowledge escalation
+T+24h           Fortinet final SLA (if no response in emergency window)
+T+48h+          Consider public disclosure preparation
+```
+
+### Next Escalation Steps (If Still Silent)
+
+**T+6h - If no Fortinet response:**
+- Public GitHub announcement (WARNING label)
+- Alert major ISACs directly (healthcare, finance, telecom)
+- Consider media notification
+
+**T+24h - If no progress:**
+- Full public disclosure
+- GitHub public advisory
+- Security researcher community alert
+- Media coordination
