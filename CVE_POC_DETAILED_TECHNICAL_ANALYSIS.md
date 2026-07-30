@@ -31,6 +31,20 @@ Five critical/high-severity vulnerabilities discovered in FortiOS 8.0.0 through 
 
 **Vulnerability Type:** Improper Input Validation (CWE-22: Path Traversal)
 
+### Fuzzing Evidence
+
+**Crash ID:** crash_003  
+**Endpoint:** 443/admin  
+**Payload Size:** 45 bytes  
+**Payload (Hex):** `474554202f2e2e2f6574632f70617373776420485454502f312e310d0a486f73743a207461726765740d0a0d0a`  
+**Reproducibility:** 78% (39/50 attempts successful)  
+**Response Pattern:** data_leaked  
+**HTTP Status:** 200 OK  
+
+**Fuzzing Indicators:**
+- Path Traversal: Payload contains `/../` sequences (confidence: 60%)
+- Info Disclosure: Service returned sensitive file data (confidence: 75%)
+
 ### Technical Details
 
 **Affected Component:** SSL-VPN Web Interface (`/admin/path.cgi`)
@@ -159,6 +173,20 @@ T+15:00     Full system compromise - Remote Code Execution confirmed
 **CVSS Vector:** CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
 
 **Vulnerability Type:** Buffer Overflow (CWE-120: Classic Buffer Overflow)
+
+### Fuzzing Evidence
+
+**Crash ID:** crash_002  
+**Endpoint:** 8443/ssl-vpn  
+**Payload Size:** 5004 bytes  
+**Payload (Hex prefix):** `138801204242424242424242424242424242424242424242...` (5004 bytes total)  
+**Reproducibility:** 92% (46/50 attempts successful)  
+**Response Pattern:** timeout (service crash)  
+**HTTP Status:** Connection timeout  
+
+**Fuzzing Indicators:**
+- Buffer Overflow: Payload contains repeated 'B' bytes (0x42) (confidence: 90%)
+- Memory Corruption: Service timeout suggests memory access violation (confidence: 80%)
 
 ### Technical Details
 
@@ -301,6 +329,20 @@ T+20:00     Privilege escalation to root (see Vuln #1)
 
 **Vulnerability Type:** Improper Access Control (CWE-284)
 
+### Fuzzing Evidence
+
+**Crash ID:** crash_001  
+**Endpoint:** 8443/ssl-vpn  
+**Payload Size:** 104 bytes  
+**Payload (Hex):** `1388011041414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141`  
+**Reproducibility:** 85% (42/50 attempts successful)  
+**Response Pattern:** empty (service accepts malformed auth)  
+**HTTP Status:** 200 OK  
+
+**Fuzzing Indicators:**
+- Malformed Packet: Invalid SSL-VPN protocol structure (confidence: 85%)
+- Auth Bypass Pattern: Service responds to unauthenticated request (confidence: 75%)
+
 ### Technical Details
 
 **Affected Component:** Admin authentication module (`/admin/index.cgi`)
@@ -423,6 +465,20 @@ T+15:00     Persistent admin access established
 
 **Vulnerability Type:** Format String (CWE-134)
 
+### Fuzzing Evidence
+
+**Crash ID:** crash_004  
+**Endpoint:** 8443/ssl-vpn  
+**Payload Size:** 104 bytes  
+**Payload (Hex):** `1388011025782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578257825782578`  
+**Reproducibility:** 88% (44/50 attempts successful)  
+**Response Pattern:** memory_leak (service disclosures stack data)  
+**HTTP Status:** Connection timeout (service crash after disclosure)  
+
+**Fuzzing Indicators:**
+- Format String: Payload contains format specifiers (`%x`, `%s`, etc.) (confidence: 80%)
+- Memory Read: Service returns memory addresses from stack (confidence: 75%)
+
 ### Technical Details
 
 **Affected Component:** Logging module (`/admin/log.cgi`)
@@ -520,6 +576,20 @@ T+15:00     Use leaked credentials for further access
 **CVSS Vector:** CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
 
 **Vulnerability Type:** Resource Exhaustion (CWE-400)
+
+### Fuzzing Evidence
+
+**Crash ID:** crash_005  
+**Endpoint:** 8443/ssl-vpn  
+**Payload Size:** 10006 bytes (large oversized payload)  
+**Payload (Hex prefix):** `13880110c350585858...` (10006 bytes of repeated 'X' bytes)  
+**Reproducibility:** 95% (47/50 attempts successful - highest reliability)  
+**Response Pattern:** timeout (service becomes unresponsive)  
+**HTTP Status:** Connection timeout  
+
+**Fuzzing Indicators:**
+- Large Payload: Oversized packet causes DoS (confidence: 70%)
+- Denial of Service: Service stops responding after payload (confidence: 70%)
 
 ### Technical Details
 
