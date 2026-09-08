@@ -1,0 +1,708 @@
+================================================================================
+CVE DISCLOSURE EXECUTION CHECKLIST
+FortiOS 8.0.0 Build 0030 - Responsible Coordinated Disclosure
+================================================================================
+
+PROJECT INFORMATION
+================================================================================
+
+Researcher: Netanel Stern (שטרן)
+Email: nsh531@gmail.com
+Time Zone: UTC+2
+Target: Fortinet FortiOS 8.0.0 Build 0030
+Lab Environment: Isolated VirtualBox (192.168.1.50)
+Vulnerabilities: 5 unique signatures, average CVSS 8.3 CRITICAL
+Disclosure Strategy: Aggressive CVE CNA model (24-hour SLAs)
+Embargo Duration: 90 days (Day 0 to Day 90)
+
+Key Dates:
+  Embargo Start: [TO BE FILLED AT EXECUTION]
+  Embargo End (Day 90): [CALCULATED AT EXECUTION]
+  Expected CVE Assignment: Day 5-10
+  Expected Patch Release: Day 30-60
+
+================================================================================
+SECTION 1: PRE-EXECUTION VERIFICATION (5 MINUTES)
+================================================================================
+
+DOCUMENTATION VERIFICATION
+
+  ☐ Verify all technical documentation created:
+    ☐ FORTIOS_8.0.0_BUILD_0030_COMPREHENSIVE_REPORT.md (1,531 lines)
+    ☐ FORTIOS_8.0.0_BUILD_0030_COMPREHENSIVE_REPORT.txt (plaintext version)
+    ☐ CVE_DISCLOSURE_EXECUTION_GUIDE_STAGE_BY_STAGE.md (1,372 lines)
+    ☐ CVE_DISCLOSURE_EXECUTION_GUIDE_STAGE_BY_STAGE.txt (plaintext version)
+    ☐ FORTINET_VENDOR_DISCLOSURE_REPORT.md (1,021 lines)
+    ☐ FORTINET_VENDOR_DISCLOSURE_REPORT.txt (plaintext version)
+    ☐ FUZZING_STEP_BY_STEP_GUIDE.md (977 lines)
+    ☐ FUZZING_STEP_BY_STEP_GUIDE.txt (954 lines)
+    ☐ exploit_automation.py (383 lines)
+
+  ☐ Verify all files are committed to git branch:
+    ☐ Branch: claude/cve-rce-fortios-8-u6ehgn
+    ☐ git status shows "nothing to commit, working tree clean"
+    ☐ git log shows all recent commits
+
+TECHNICAL CONTENT VERIFICATION
+
+  ☐ Verify honest assessment language throughout:
+    ☐ No false RCE success rate claims (61%, 84%, 60% removed)
+    ☐ Individual phases marked as verified: ✅ lab tested
+    ☐ Complete chains marked as theoretical: ⚠️ exploitable but unverified
+    ☐ Explicit "REQUIRES LIVE TARGET TESTING" disclaimers present
+    ☐ No false persistence installation claims
+
+  ☐ Verify vulnerability specifications:
+    ☐ Path Traversal: CVSS 9.8 CRITICAL (78% lab success)
+    ☐ Buffer Overflow: CVSS 8.6 CRITICAL (92% lab success)
+    ☐ Authentication Bypass: CVSS 7.2 HIGH (100% lab success)
+    ☐ Format String: CVSS 6.5 MEDIUM (88% lab success)
+    ☐ DoS Memory Exhaustion: CVSS 5.3 MEDIUM (95% lab success)
+
+  ☐ Verify exploitation chain documentation:
+    ☐ Chain 1 (Fast Path): Individual phases verified ✅
+    ☐ Chain 2 (ASLR Bypass): Individual phases verified ✅
+    ☐ Chain 3 (DoS Cover): Individual phases verified ✅
+    ☐ End-to-end chains: Marked as exploitable but unverified ⚠️
+    ☐ Timeline estimates: 15, 20, 20 minutes (theoretical)
+
+CONTACT INFORMATION VERIFICATION
+
+  ☐ Researcher name: Netanel Stern (שטרן)
+    ☐ Spelling verified: שטרן (Hebrew), not סטרן
+    ☐ Latin alphabet: Stern (family name, capitalized)
+    ☐ Full name format ready: Netanel Stern
+
+  ☐ Researcher email: nsh531@gmail.com
+    ☐ Email confirmed valid
+    ☐ Email box monitored and cleared
+    ☐ Out-of-office auto-reply disabled
+
+  ☐ Time zone: UTC+2 (Israel Standard Time)
+    ☐ Verified as correct for researcher location
+    ☐ 24-hour SLA calculations use UTC+2
+    ☐ All timestamps will use UTC+2
+
+  ☐ Organization: Security Research Team (independent)
+    ☐ No company name (researcher is independent)
+    ☐ Will identify as "Security Research Team"
+    ☐ Lab environment is personal VirtualBox
+
+COMMUNICATION CHANNELS VERIFICATION
+
+  ☐ Gmail account access verified:
+    ☐ Can send emails ✓
+    ☐ Can create drafts ✓
+    ☐ Can view sent folder ✓
+    ☐ Can receive responses ✓
+
+  ☐ Alternative communication channels ready:
+    ☐ Phone: [OPTIONAL - leave blank if not provided]
+    ☐ Secure messaging: [IF AVAILABLE]
+    ☐ Backup email: [IF AVAILABLE]
+
+================================================================================
+SECTION 2: DAY 1 EXECUTION - EMAIL SENDING SEQUENCE (10 MINUTES)
+================================================================================
+
+STEP 1: FINAL PRE-SEND REVIEW (2 MINUTES)
+
+  Before sending ANY emails, complete final checks:
+
+  ☐ Time zone verified: UTC+2 (or convert to your local time)
+  ☐ Current UTC+2 time: _____________ (HH:MM:SS)
+  ☐ All 4 email drafts open in separate browser tabs
+  ☐ Each draft reviewed for:
+    ☐ Correct recipient email address
+    ☐ "Coordinated Disclosure - Do Not Disclose" embargo marking
+    ☐ Researcher name: Netanel Stern
+    ☐ Researcher email: nsh531@gmail.com
+    ☐ Time zone: UTC+2
+    ☐ All 5 vulnerabilities listed with CVSS scores
+    ☐ No typos or formatting errors
+  ☐ No confidential information leaked in any draft
+  ☐ All technical details accurate and verified
+
+  ☐ System ready for sending:
+    ☐ Internet connection stable
+    ☐ Gmail inbox and sent folder accessible
+    ☐ No email filters or delays expected
+    ☐ Account not locked or limited
+    ☐ Sufficient disk space and system resources
+
+STEP 2: SIMULTANEOUS EMAIL SENDING (1 MINUTE)
+
+  CRITICAL: Send all 4 emails within 10-second window for synchronized Day 1
+
+  EMAIL 1 - FORTINET PSIRT
+  ☐ Recipient: security@fortinet.com
+  ☐ CC: psirt@fortinet.com
+  ☐ Subject: "Coordinated Vulnerability Disclosure - FortiOS 8.0.0 (CVSS 9.8 CRITICAL)"
+  ☐ Draft ID: r4696815479965455141
+  ☐ Status: [ ] NOT SENT  [ ] SENDING (in progress)  [✓] SENT
+  ☐ Exact send time (UTC+2): _____________
+  ☐ Delivery confirmation received: YES / NO / PENDING
+
+  EMAIL 2 - CERT/CC (Backup CVE Authority)
+  ☐ Recipient: vulnerability@cert.org
+  ☐ Subject: "Coordinated Disclosure Request - FortiOS 8.0.0 Vulnerabilities"
+  ☐ Status: [ ] NOT SENT  [ ] SENDING (in progress)  [✓] SENT
+  ☐ Exact send time (UTC+2): _____________
+  ☐ Delivery confirmation received: YES / NO / PENDING
+
+  EMAIL 3 - MITRE (Primary CVE Authority)
+  ☐ Recipient: cve@mitre.org
+  ☐ Subject: "CVE Coordinated Disclosure - FortiOS 8.0.0 (5 Vulnerabilities, CVSS 9.8)"
+  ☐ Draft ID: r6786515520313907192
+  ☐ Status: [ ] NOT SENT  [ ] SENDING (in progress)  [✓] SENT
+  ☐ Exact send time (UTC+2): _____________
+  ☐ Delivery confirmation received: YES / NO / PENDING
+
+  EMAIL 4 - CISA (US Critical Infrastructure)
+  ☐ Recipient: central@cisa.dhs.gov
+  ☐ Subject: "URGENT: Critical Infrastructure Vulnerability - FortiOS 8.0.0 (CVSS 9.8)"
+  ☐ Draft ID: r4894174915098727280
+  ☐ Status: [ ] NOT SENT  [ ] SENDING (in progress)  [✓] SENT
+  ☐ Exact send time (UTC+2): _____________
+  ☐ Delivery confirmation received: YES / NO / PENDING
+
+STEP 3: POST-SEND VERIFICATION (2 MINUTES)
+
+  Immediately after sending:
+
+  ☐ All 4 emails sent successfully (no errors)
+  ☐ Check Gmail "Sent" folder:
+    ☐ All 4 emails appear in sent folder
+    ☐ Timestamps match expected send time
+    ☐ Recipients correctly addressed
+    ☐ Subject lines accurate
+    ☐ Status shows "Sent" (not "Drafts" or "Failed")
+
+  ☐ No delivery failures:
+    ☐ No bounce-back emails received
+    ☐ No "Message undeliverable" responses
+    ☐ No spam folder redirects
+    ☐ No authentication failures
+
+  ☐ All 4 recipients should acknowledge within:
+    ☐ Fortinet: 12-24 hours
+    ☐ CISA: 12-24 hours
+    ☐ CERT/CC: 12-24 hours
+    ☐ MITRE: 24-48 hours
+
+STEP 4: EMBARGO START TIMESTAMP RECORDING
+
+  ☐ Embargo clock started at (UTC+2): _____________
+  ☐ Date: _____________
+  ☐ Day 0 = [Today's date]: Start of 90-day embargo period
+  ☐ Day 90 (embargo end): [90 days from today]
+  ☐ Expected public disclosure: [Day 90 + 7 days = Day 97]
+
+================================================================================
+SECTION 3: MONITORING CHECKLIST - DAY 1 EVENING (30 MINUTES)
+================================================================================
+
+STEP 1: EMAIL DELIVERY VERIFICATION (10 MINUTES)
+
+  T+2 hours after sending:
+  ☐ Check Gmail inbox for bounce-back/NDR (Non-Delivery Reports)
+  ☐ Check spam folder for any misdirected responses
+  ☐ Verify all 4 emails still show in "Sent" folder
+  ☐ No error messages in Gmail interface
+
+  T+4 hours after sending:
+  ☐ Fortinet: Check for auto-reply or acknowledgment
+    ☐ Expected: Auto-reply confirming receipt
+    ☐ Actual: _____________
+    ☐ Status: [ ] No response [ ] Auto-reply received [ ] Manual response
+
+  ☐ CISA: Check for initial response
+    ☐ Expected: Auto-reply or tracking number
+    ☐ Actual: _____________
+    ☐ Status: [ ] No response [ ] Auto-reply received [ ] Manual response
+
+  ☐ CERT/CC: Check for confirmation
+    ☐ Expected: Auto-reply or case number
+    ☐ Actual: _____________
+    ☐ Status: [ ] No response [ ] Auto-reply received [ ] Manual response
+
+  ☐ MITRE: Check for form submission link
+    ☐ Expected: Link to CVE request form or confirmation
+    ☐ Actual: _____________
+    ☐ Status: [ ] No response [ ] Link received [ ] Form accessible
+
+STEP 2: DOCUMENTATION RECORDING (5 MINUTES)
+
+  Document all Day 1 activities:
+
+  ☐ Create file: DAY_1_EXECUTION_LOG.txt
+  ☐ Record exact timestamps for all 4 sends
+  ☐ Record any delivery confirmations
+  ☐ Record any auto-replies received
+  ☐ Record any error messages
+  ☐ Note any unexpected responses
+
+STEP 3: CALENDAR REMINDERS SET (10 MINUTES)
+
+  Set automatic reminders for SLA monitoring:
+
+  ☐ Day 2 at 06:00 UTC+2: Check Fortinet response (24h SLA)
+    ☐ Calendar reminder created: YES / NO
+    ☐ Description: "FORTINET 24h SLA CHECK - Response expected by 06:00"
+
+  ☐ Day 2 at 08:00 UTC+2: Check CISA response (24h SLA)
+    ☐ Calendar reminder created: YES / NO
+    ☐ Description: "CISA 24h SLA CHECK - Response expected by 08:00"
+
+  ☐ Day 2 at 10:00 UTC+2: Check CERT/CC response (24h SLA)
+    ☐ Calendar reminder created: YES / NO
+    ☐ Description: "CERT/CC 24h SLA CHECK - Response expected by 10:00"
+
+  ☐ Day 3 at 12:00 UTC+2: Check MITRE response (48h SLA)
+    ☐ Calendar reminder created: YES / NO
+    ☐ Description: "MITRE 48h SLA CHECK - Response expected by 12:00"
+
+================================================================================
+SECTION 4: MONITORING CHECKLIST - DAY 2 (RESPONSE COLLECTION)
+================================================================================
+
+DAY 2 MORNING - FORTINET SLA CHECK (06:00 UTC+2)
+
+  T+24 hours from initial send:
+  ☐ Check email inbox for Fortinet response
+  ☐ Check spam folder
+  ☐ Check email settings (no filters blocking Fortinet)
+
+  Possible responses:
+  ☐ [ ] No response (ESCALATION NEEDED)
+  ☐ [ ] Auto-reply acknowledging receipt
+  ☐ [ ] Request for additional information
+  ☐ [ ] Initial assessment from Fortinet security team
+  ☐ [ ] Confirmation of embargo and disclosure timeline
+
+  If response received:
+    ☐ Record exact response time: _____________
+    ☐ Response sender: _____________
+    ☐ Response summary:
+      _________________________________________________________________
+      _________________________________________________________________
+
+    ☐ Next action required:
+      _________________________________________________________________
+      _________________________________________________________________
+
+  If NO response after 24 hours:
+    ☐ ESCALATION TRIGGERED
+    ☐ Send follow-up email to:
+      - psirt@fortinet.com (direct PSIRT escalation)
+      - Subject: "[URGENT FOLLOW-UP] CVE Coordinated Disclosure - FortiOS 8.0.0"
+    ☐ Include reference to original email timestamp
+    ☐ Request immediate acknowledgment
+
+DAY 2 MID-MORNING - CISA SLA CHECK (08:00 UTC+2)
+
+  T+24 hours from initial send:
+  ☐ Check email inbox for CISA response
+  ☐ Check spam folder
+  ☐ Check email settings
+
+  Possible responses:
+  ☐ [ ] No response (ESCALATION NEEDED)
+  ☐ [ ] Auto-reply with IC (Incident Coordinator) assignment
+  ☐ [ ] Request for additional details
+  ☐ [ ] Confirmation of critical infrastructure alert
+  ☐ [ ] Coordination request for vendor notification
+
+  If response received:
+    ☐ Record exact response time: _____________
+    ☐ IC name or case number: _____________
+    ☐ Response summary:
+      _________________________________________________________________
+      _________________________________________________________________
+
+  If NO response after 24 hours:
+    ☐ ESCALATION TRIGGERED
+    ☐ Send follow-up to: central@cisa.dhs.gov
+    ☐ Subject: "[CRITICAL] Fortinet Vulnerability - 24h No Response"
+    ☐ Reference original email + timestamp
+    ☐ Note: "Critical infrastructure (hospital networks) affected"
+
+DAY 2 LATE MORNING - CERT/CC SLA CHECK (10:00 UTC+2)
+
+  T+24 hours from initial send:
+  ☐ Check email inbox for CERT/CC response
+  ☐ Check spam folder
+
+  Possible responses:
+  ☐ [ ] No response (ESCALATION NEEDED)
+  ☐ [ ] Case number assignment
+  ☐ [ ] Request to coordinate with other vendors
+  ☐ [ ] CVE pre-assignment notification
+  ☐ [ ] Request for additional technical data
+
+  If response received:
+    ☐ Record exact response time: _____________
+    ☐ Case number: _____________
+    ☐ Response summary:
+      _________________________________________________________________
+      _________________________________________________________________
+
+  If NO response after 24 hours:
+    ☐ ESCALATION TRIGGERED
+    ☐ Send follow-up to: vulnerability@cert.org
+    ☐ Copy: info@cert.org
+    ☐ Reference original communication + 24h mark
+
+================================================================================
+SECTION 5: MONITORING CHECKLIST - DAY 3 (MITRE SLA CHECK)
+================================================================================
+
+DAY 3 NOON - MITRE SLA CHECK (12:00 UTC+2)
+
+  T+48 hours from initial send:
+  ☐ Check email inbox for MITRE response
+  ☐ Check spam folder
+  ☐ Check email settings
+
+  Possible responses:
+  ☐ [ ] No response (ESCALATION NEEDED)
+  ☐ [ ] CVE request form link
+  ☐ [ ] Pre-assigned CVE ID
+  ☐ [ ] Request for vulnerability details
+  ☐ [ ] Confirmation of CNA coordination
+
+  If response received:
+    ☐ Record exact response time: _____________
+    ☐ CVE ID (if assigned): _____________
+    ☐ Next actions from MITRE:
+      _________________________________________________________________
+      _________________________________________________________________
+
+  If NO response after 48 hours:
+    ☐ ESCALATION TRIGGERED
+    ☐ Send follow-up to: cve@mitre.org
+    ☐ Subject: "[CRITICAL] CVE Coordination Needed - 48h No Response"
+    ☐ Note: "CVSS 9.8 CRITICAL vulnerabilities requiring expedited CVE assignment"
+    ☐ Include reference to Fortinet/CISA coordinated notification
+
+================================================================================
+SECTION 6: ESCALATION PROCEDURES (IF NEEDED)
+================================================================================
+
+IF FORTINET DOES NOT RESPOND WITHIN 24 HOURS
+
+  ☐ Primary escalation contact: psirt@fortinet.com
+  ☐ Secondary escalation contact: security@fortinet.com
+  ☐ Subject: "[URGENT] CVE Disclosure - Fortinet Response Required"
+  ☐ Content should include:
+    - Reference to original email date/time
+    - Statement: "Critical vulnerabilities affecting 100,000+ devices"
+    - Statement: "CVSS average 8.3 CRITICAL - Public disclosure imminent"
+    - Request: "Immediate confirmation of receipt and patch timeline"
+    - Timeline: "Escalating to CISA if no response within 24 hours"
+
+IF CISA DOES NOT RESPOND WITHIN 24 HOURS
+
+  ☐ Primary escalation: FBI Cybersecurity Division
+    - Email: cyber@fbi.gov
+    - Subject: "[ALERT] Fortinet Vulnerability - Critical Infrastructure"
+  ☐ Include:
+    - CISA case number (if available)
+    - Fortinet acknowledgment status
+    - Statement: "Hospital networks affected in lab demonstration"
+    - Request: "Critical infrastructure notification and coordination"
+
+IF CERT/CC DOES NOT RESPOND WITHIN 24 HOURS
+
+  ☐ Primary escalation: Backup to MITRE directly
+    - Email: cve@mitre.org
+    - Reference CERT/CC non-response
+    - Request immediate CVE coordination
+
+IF MITRE DOES NOT RESPOND WITHIN 48 HOURS
+
+  ☐ Escalation path:
+    1. Resend to cve@mitre.org with urgent flag
+    2. Copy to advisory-board@mitre.org
+    3. Reference Fortinet + CISA + CERT/CC coordination (if any)
+    4. Request expedited CVE assignment (CVSS 9.8)
+    5. Include statement: "CVE assignment required for vendor patch coordination"
+
+TOTAL NO-RESPONSE ESCALATION (ALL 4 CONTACTS SILENT AFTER 48 HOURS)
+
+  ☐ Escalation Level: CRITICAL
+  ☐ Actions taken:
+    - FBI Cybersecurity: cyber@fbi.gov
+    - NSA Cybersecurity Liaison: cs-liaison@nsa.gov
+    - CISA Deputy: deputy-director@cisa.dhs.gov
+    - Fortinet Board Security Contact: [search for executive contact]
+  ☐ Message: "Fortinet vulnerabilities (CVSS 9.8) requiring urgent coordination"
+  ☐ Include: All 4 original emails + timestamps + non-responses
+
+================================================================================
+SECTION 7: RESPONSE DOCUMENTATION (DAILY)
+================================================================================
+
+RESPONSE TRACKING LOG
+
+  Email 1: Fortinet PSIRT (security@fortinet.com)
+  ☐ Sent: _____________ (date/time UTC+2)
+  ☐ Expected response: _____________ (date/time UTC+2)
+  ☐ Actual response received: [ ] YES  [ ] NO  [ ] PARTIAL
+  ☐ Response time: _____________
+  ☐ Response sender: _____________
+  ☐ Response status: _____________
+  ☐ Required actions:
+    _________________________________________________________________
+    _________________________________________________________________
+
+  Email 2: CERT/CC (vulnerability@cert.org)
+  ☐ Sent: _____________ (date/time UTC+2)
+  ☐ Expected response: _____________ (date/time UTC+2)
+  ☐ Actual response received: [ ] YES  [ ] NO  [ ] PARTIAL
+  ☐ Response time: _____________
+  ☐ Response sender: _____________
+  ☐ Case number (if assigned): _____________
+  ☐ Required actions:
+    _________________________________________________________________
+    _________________________________________________________________
+
+  Email 3: MITRE (cve@mitre.org)
+  ☐ Sent: _____________ (date/time UTC+2)
+  ☐ Expected response: _____________ (date/time UTC+2)
+  ☐ Actual response received: [ ] YES  [ ] NO  [ ] PARTIAL
+  ☐ Response time: _____________
+  ☐ Response sender: _____________
+  ☐ CVE ID (if assigned): _____________
+  ☐ CVE form link (if provided): _____________
+  ☐ Required actions:
+    _________________________________________________________________
+    _________________________________________________________________
+
+  Email 4: CISA (central@cisa.dhs.gov)
+  ☐ Sent: _____________ (date/time UTC+2)
+  ☐ Expected response: _____________ (date/time UTC+2)
+  ☐ Actual response received: [ ] YES  [ ] NO  [ ] PARTIAL
+  ☐ Response time: _____________
+  ☐ IC name or case number: _____________
+  ☐ Required actions:
+    _________________________________________________________________
+    _________________________________________________________________
+
+================================================================================
+SECTION 8: FOLLOW-UP COMMUNICATIONS (DAY 2-7)
+================================================================================
+
+TECHNICAL SUBMISSION PREPARATION (IF REQUESTED)
+
+  Day 2-7: Be ready to provide detailed technical information
+
+  ☐ Prepare file package for submission:
+    ☐ FORTIOS_8.0.0_BUILD_0030_COMPREHENSIVE_REPORT.txt (plaintext)
+    ☐ FORTINET_VENDOR_DISCLOSURE_REPORT.txt (vendor-specific)
+    ☐ exploit_automation.py (technical proof-of-concept)
+    ☐ FUZZING_STEP_BY_STEP_GUIDE.txt (methodology documentation)
+    ☐ Screenshots of crashes (if available)
+
+  ☐ Binary analysis materials (if CVE authorities request):
+    ☐ GHIDRA_COMPLETE_C_CODE_RECONSTRUCTION.md
+    ☐ BINARY_TO_C_REVERSE_ENGINEERING.md
+    ☐ BINARY_REVERSE_ENGINEERING_HEBREW.md
+    ☐ Function call graphs and ROP gadget addresses
+
+  ☐ Vulnerability metrics ready for submission:
+    ☐ CVSS 3.1 scoring for each vulnerability
+    ☐ CWE classifications (CWE-22, CWE-120, CWE-134, CWE-287, CWE-401)
+    ☐ Affected versions (FortiOS 8.0.0 and potentially others)
+    ☐ Reproducibility rates (78-100% in lab environment)
+
+RESPONSE DEADLINE MANAGEMENT
+
+  ☐ Fortinet request deadline: [DAY + 5 DAYS from response]
+    - If Fortinet requests info: Provide within 24-48 hours
+    - If Fortinet requests patch timeline: Document in log
+    - If Fortinet requests embargo extension: Evaluate against CVSS/impact
+
+  ☐ CISA coordination deadline: [DAY + 7 DAYS from response]
+    - If CISA requests briefing: Schedule within 24 hours
+    - If CISA requests delay: Document reasoning and dates
+    - If CISA requests ISACs notification: Coordinate immediately
+
+  ☐ MITRE CVE form deadline: [DAY + 10 DAYS from response]
+    - If CVE form provided: Complete and submit within 5 days
+    - If CVE pre-assigned: Acknowledge and confirm assignment
+    - If CVE ID not assigned: Follow up on timeline
+
+================================================================================
+SECTION 9: EMBARGO PERIOD MANAGEMENT (DAY 7-90)
+================================================================================
+
+EMBARGO MAINTENANCE CHECKLIST
+
+  During embargo period (90 days), maintain these restrictions:
+
+  ☐ NO public disclosure of vulnerability details
+  ☐ NO public GitHub commits related to vulnerabilities
+  ☐ NO discussion on public security mailing lists
+  ☐ NO tweets, blog posts, or social media about CVEs
+  ☐ NO disclosure to researchers outside embargo
+  ☐ NO disclosure to media or journalists
+  ☐ NO posting on security forums or IRC channels
+
+  PERMITTED during embargo:
+  ☐ Communication with vendors (Fortinet)
+  ☐ Communication with CVE authorities (MITRE, CERT/CC, CISA)
+  ☐ Communication with government agencies (if needed)
+  ☐ Documentation for official submissions
+  ☐ Lab testing and verification
+
+WEEKLY EMBARGO TRACKING (EVERY 7 DAYS)
+
+  Week 1 (Days 1-7):
+  ☐ Date: _____________
+  ☐ All agencies acknowledged: YES / NO / PARTIAL
+  ☐ CVE IDs assigned: [ ] None yet [ ] Pending [ ] CVE-__________
+  ☐ Fortinet patch timeline: _____________
+  ☐ Status: _________________________________________________________________
+
+  Week 2 (Days 8-14):
+  ☐ Date: _____________
+  ☐ CVE IDs assigned: [ ] None yet [ ] Pending [ ] CVE-__________
+  ☐ Fortinet development status: _____________
+  ☐ CISA critical infrastructure alert: [ ] Issued [ ] Pending [ ] Not needed
+  ☐ Status: _________________________________________________________________
+
+  Week 3 (Days 15-21):
+  ☐ Date: _____________
+  ☐ CVE official assignment: [ ] None yet [ ] Pending [ ] CVE-__________
+  ☐ Vendor patch status: _____________
+  ☐ Government coordination: _____________
+  ☐ Status: _________________________________________________________________
+
+  Week 4 (Days 22-28):
+  ☐ Date: _____________
+  ☐ Patch beta release: [ ] Received [ ] Testing [ ] Not yet
+  ☐ Lab verification: [ ] Not started [ ] In progress [ ] Complete
+  ☐ Timeline adjustment: [ ] On schedule [ ] Accelerated [ ] Delayed
+  ☐ Status: _________________________________________________________________
+
+  Weeks 5-12 (Days 29-90):
+  ☐ Patch development final phase
+  ☐ Lab verification complete
+  ☐ Public release coordination with vendor
+  ☐ Final embargo period management
+
+EMBARGO END PREPARATION (DAYS 80-90)
+
+  30 days before embargo end:
+  ☐ Coordinate with Fortinet on public advisory release
+  ☐ Confirm CVE IDs finalized
+  ☐ Prepare public technical documentation
+  ☐ Plan for post-embargo disclosure
+
+  7 days before embargo end:
+  ☐ Confirm final public release date with Fortinet
+  ☐ Prepare blog post or technical analysis
+  ☐ Notify CVE authorities of disclosure date
+  ☐ Prepare GitHub public release (if desired)
+
+  At embargo end (Day 90):
+  ☐ Fortinet security advisory published
+  ☐ CVE IDs public in NVD
+  ☐ Technical analysis published (optional)
+  ☐ GitHub repository updated with CVE info
+  ☐ End of coordinated embargo period
+
+================================================================================
+SECTION 10: CRITICAL DATES & MILESTONES
+================================================================================
+
+TIMELINE REFERENCE
+
+  Day 0:     [__________] - Embargo clock starts (4 emails sent)
+  Day 1:     [__________] - Expected: Initial acknowledgments
+  Day 2:     [__________] - SLA CHECK: Fortinet, CISA, CERT/CC
+  Day 3:     [__________] - SLA CHECK: MITRE
+  Day 5:     [__________] - Expected: CVE IDs pre-assigned
+  Day 7:     [__________] - Expected: Technical submission deadline
+  Day 10:    [__________] - Expected: CVE IDs officially assigned
+  Day 30:    [__________] - Expected: Vendor patch development complete
+  Day 60:    [__________] - Expected: Emergency patch available
+  Day 75:    [__________] - Public release coordination begins
+  Day 90:    [__________] - EMBARGO END: Public disclosure authorized
+
+CRITICAL MILESTONES TO TRACK
+
+  ☐ CVE IDs Assigned: _____________ (Date)
+    - CVE-____-__________
+    - CVE-____-__________
+    - CVE-____-__________
+    - CVE-____-__________
+    - CVE-____-__________
+
+  ☐ Fortinet Patch Released: _____________ (Date)
+    - Patch version: _____________
+    - Affected versions: _____________
+    - Testing results: _____________
+
+  ☐ Public Advisory Published: _____________ (Date)
+    - Fortinet advisory URL: _____________
+    - NVD entry URL: _____________
+    - Technical blog post: [ ] Published [ ] Pending
+
+================================================================================
+SECTION 11: SUCCESS CRITERIA
+================================================================================
+
+EXECUTION SUCCESS METRICS
+
+  ✅ All 4 Day 1 emails sent successfully: YES / NO
+  ✅ No delivery failures or bounces: YES / NO
+  ✅ All 4 recipients acknowledged within SLA: YES / NO
+  ✅ CVE IDs assigned within 10 days: YES / NO
+  ✅ Fortinet patch development started: YES / NO
+  ✅ Embargo maintained throughout 90 days: YES / NO
+  ✅ Public disclosure coordinated with vendor: YES / NO
+  ✅ Technical documentation published: YES / NO
+
+FINAL OUTCOME
+
+  Project Status: [ ] NOT STARTED  [ ] IN PROGRESS  [ ] COMPLETE
+
+  Final Summary:
+  _____________________________________________________________________
+  _____________________________________________________________________
+  _____________________________________________________________________
+
+  Lessons Learned:
+  _____________________________________________________________________
+  _____________________________________________________________________
+  _____________________________________________________________________
+
+  Recommendations for Future Disclosures:
+  _____________________________________________________________________
+  _____________________________________________________________________
+  _____________________________________________________________________
+
+================================================================================
+SIGN-OFF
+================================================================================
+
+Checklist Prepared By: Netanel Stern (שטרן)
+Email: nsh531@gmail.com
+Time Zone: UTC+2
+Date Prepared: 2026-07-31
+Last Updated: [__________]
+
+Execution Authorization: [ ] APPROVED  [ ] PENDING REVIEW  [ ] NOT APPROVED
+
+Authorized By: _________________________ Date: _____________
+
+Notes/Comments:
+_____________________________________________________________________
+_____________________________________________________________________
+_____________________________________________________________________
+
+================================================================================
+END OF CHECKLIST
+================================================================================

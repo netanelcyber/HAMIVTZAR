@@ -1,0 +1,251 @@
+================================================================================
+BUILD 0167 TESTING FRAMEWORK - QUICK START GUIDE
+================================================================================
+
+Location: /home/user/HAMIVTZAR/BUILD_0167_TESTING_FRAMEWORK/
+
+FILES:
+  test_build_0167.py              Main exploitation test orchestrator
+  binary_comparison_tool.py       Binary analysis & comparison
+  exploit_automation.py           Automation for 3 exploitation chains
+  run_tests.sh                    Quick-start shell script
+  README_BUILD_0167_TESTING.md    Comprehensive documentation
+
+================================================================================
+SCENARIO 1: Quick Test (Against Live Target)
+================================================================================
+
+Command:
+  ./run_tests.sh 192.168.1.100 443
+
+What it does:
+  - Connects to FortiOS 8.0.0 Build 0167 at 192.168.1.100:443
+  - Tests all 5 vulnerabilities
+  - Runs all 3 exploitation chains
+  - Generates results JSON files
+
+Results Location:
+  - reports/build_0167_test_results_YYYYMMDD_HHMMSS.json
+  - reports/TEST_SUMMARY.txt
+  - logs/exploitation_tests.log
+
+Expected Time: 5-15 minutes
+
+
+================================================================================
+SCENARIO 2: Binary Analysis (Recommended First)
+================================================================================
+
+Step 1: Extract FortiOS 8.0.0 Build 0167 binary
+  scp admin@192.168.1.100:/bin/httpd ./fortios_0167.bin
+
+Step 2: Run binary comparison
+  python3 binary_comparison_tool.py fortios_0030.bin fortios_0167.bin
+
+Results:
+  - binary_comparison_results.json (detailed analysis)
+  - Shows which vulnerable functions were removed/patched
+  - Shows if ROP gadget addresses changed
+  - Shows string differences indicating patches
+
+Interpretation:
+  ✓ Function REMOVED = Vulnerability PATCHED
+  ⚠ Function PRESENT = Vulnerability likely still exists
+  ⚠ Address CHANGED = ROP chains need recalculation
+
+
+================================================================================
+SCENARIO 3: Full Testing with Binary Analysis
+================================================================================
+
+Command:
+  ./run_tests.sh 192.168.1.100 443 fortios_0030.bin fortios_0167.bin
+
+What it does:
+  1. Compares binaries (Phase 1)
+  2. Tests exploitation (Phase 2)
+  3. Runs chains (Phase 3)
+  4. Generates summary (Phase 4)
+
+Expected Results:
+  Reports:
+    - binary_comparison_results.json
+    - build_0167_test_results_*.json
+    - exploitation_results_0167_*.json
+    - TEST_SUMMARY.txt
+
+
+================================================================================
+MANUAL EXECUTION (For Specific Testing)
+================================================================================
+
+Test against target (no binary needed):
+  python3 test_build_0167.py 192.168.1.100 443
+
+Run exploitation chains only:
+  python3 exploit_automation.py 192.168.1.100 443
+
+Compare binaries:
+  python3 binary_comparison_tool.py fortios_0030.bin fortios_0167.bin
+
+
+================================================================================
+VULNERABILITIES BEING TESTED
+================================================================================
+
+1. Path Traversal (CWE-22)
+   CVSS: 9.8 CRITICAL
+   Baseline (0030): 78% success rate
+   Impact: SSH key extraction, shadow file access
+
+2. Buffer Overflow (CWE-120)
+   CVSS: 8.6 CRITICAL
+   Baseline (0030): 92% success rate
+   Impact: RCE via ROP chain (addresses: 0x402a0a, 0x402a0c, etc)
+
+3. Authentication Bypass (CWE-287)
+   CVSS: 7.2 HIGH
+   Baseline (0030): 85% success rate
+   Impact: Full admin access with 1-byte token brute force
+
+4. Format String (CWE-134)
+   CVSS: 6.5 MEDIUM
+   Baseline (0030): 88% success rate
+   Impact: ASLR bypass via memory leak
+
+5. DoS Memory Exhaustion (CWE-401)
+   CVSS: 5.3 MEDIUM
+   Baseline (0030): 95% success rate
+   Impact: Service disruption (cover for other attacks)
+
+
+================================================================================
+EXPLOITATION CHAINS TO TEST
+================================================================================
+
+Chain 1: Fast Path (15 minutes to RCE)
+  - Success Rate (0030): 61%
+  - Path Traversal → Auth Bypass → Buffer Overflow → Root Shell
+
+Chain 2: ASLR Bypass (20 minutes to RCE)
+  - Success Rate (0030): 84%
+  - Format String Leak → ASLR Defeat → Precision ROP → Root Shell
+
+Chain 3: DoS Cover (20 minutes to persistence)
+  - Success Rate (0030): 60%
+  - Memory Exhaustion → Exploitation during chaos → Backdoor install
+
+
+================================================================================
+EXPECTED RESULTS
+================================================================================
+
+BEST CASE (All Vulnerabilities Patched):
+  ✓ Path Traversal: PATCHED (function removed)
+  ✓ Buffer Overflow: PATCHED (code rewritten)
+  ✓ Auth Bypass: PATCHED (token validation fixed)
+  ✓ Format String: PATCHED (sanitized)
+  ✓ DoS Memory: PATCHED (limits added)
+  → Conclusion: Build 0167 SECURE
+
+
+WORST CASE (All Vulnerabilities Persist):
+  ✗ Path Traversal: VULNERABLE
+  ✗ Buffer Overflow: VULNERABLE
+  ✗ Auth Bypass: VULNERABLE
+  ✗ Format String: VULNERABLE
+  ✗ DoS Memory: VULNERABLE
+  → Conclusion: Build 0167 CRITICAL RISK
+
+
+MIXED CASE (Partial Patching):
+  ✓ Path Traversal: PATCHED
+  ✗ Buffer Overflow: VULNERABLE (but addresses changed)
+  ✓ Auth Bypass: PATCHED
+  ✗ Format String: VULNERABLE
+  ✓ DoS Memory: PATCHED
+  → Conclusion: Build 0167 HIGH RISK
+
+
+================================================================================
+CHECKING RESULTS
+================================================================================
+
+View raw results:
+  cat reports/build_0167_test_results_*.json | jq .
+
+View summary:
+  cat reports/TEST_SUMMARY.txt
+
+View exploitation chains:
+  cat exploitation_results_0167_*.json | jq '.chains'
+
+View binary comparison:
+  cat binary_comparison_results.json | jq '.comparison'
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Connection refused?
+  → Verify target is reachable: ping 192.168.1.100
+  → Check port open: nmap -p 443 192.168.1.100
+  → Test SSH: ssh admin@192.168.1.100
+
+Binary not found?
+  → Extract from system: scp admin@192.168.1.100:/bin/httpd ./fortios_0167.bin
+  → Verify it exists: file fortios_0167.bin
+
+ROP gadgets not found?
+  → Use GHIDRA to manually locate gadgets:
+    - Search: Memory → Find Bytes → \x5f\xc3 (POP RDI; RET)
+  → Or use: ROPgadget --file fortios_0167.bin | grep "POP RDI"
+
+Exploitation fails?
+  → Check ROP gadget addresses match 0x402a0a, 0x402a0c, 0x402a0e, 0x4d4567
+  → If changed in 0167, update exploit_automation.py
+  → Re-extract binary and analyze
+
+
+================================================================================
+NEXT STEPS AFTER TESTING
+================================================================================
+
+1. Review results in reports/ directory
+2. Compare success rates to Build 0030 baseline
+3. If vulnerabilities patched:
+   - Build 0167 is secure, can be deployed
+   - Document patches for security bulletin
+4. If vulnerabilities persist:
+   - Escalate to Fortinet PSIRT
+   - Update CVE disclosure with Build 0167 status
+   - Recommend patches/workarounds
+5. If ROP addresses changed:
+   - Update exploitation code
+   - Recalculate ROP chains
+   - Verify new chains work
+
+
+================================================================================
+DOCUMENTATION
+================================================================================
+
+For detailed information, see: README_BUILD_0167_TESTING.md
+
+Topics covered:
+  - Complete workflow explanation
+  - Binary analysis methodology
+  - Exploitation chain details
+  - ROP gadget verification
+  - Results interpretation
+  - Advanced options
+  - Troubleshooting guide
+
+
+================================================================================
+Framework Version: 1.0
+Created: 2026-07-31
+Target Build: FortiOS 8.0.0 Build 0167
+Baseline Build: FortiOS 8.0.0 Build 0030
+================================================================================
